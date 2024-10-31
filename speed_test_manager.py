@@ -1,8 +1,7 @@
-import speedtest
-import threading
 import json
 from datetime import datetime
 from pathlib import Path
+import threading
 from logger import logger
 
 class SpeedTestManager:
@@ -70,9 +69,14 @@ class SpeedTestManager:
     def _initialize_speedtest(self):
         """初始化 speedtest"""
         try:
-            self._speedtest = speedtest.Speedtest()
+            # 延遲導入 speedtest-cli，避免啟動時就載入
+            import speedtest
+            self._speedtest = speedtest.Speedtest(secure=True)
             logger.info("Speedtest 初始化成功")
             return True
+        except ImportError:
+            logger.error("無法載入 speedtest-cli 模組")
+            return False
         except Exception as e:
             logger.error(f"Speedtest 初始化失敗: {str(e)}")
             return False
@@ -80,6 +84,9 @@ class SpeedTestManager:
     def _get_best_server(self):
         """獲取最佳伺服器"""
         try:
+            if not self._speedtest:
+                return None
+            
             logger.info("正在尋找最佳伺服器...")
             best_server = self._speedtest.get_best_server()
             logger.info(f"找到最佳伺服器: {best_server['host']} ({best_server['country']})")
@@ -91,6 +98,9 @@ class SpeedTestManager:
     def _test_download(self):
         """測試下載速度"""
         try:
+            if not self._speedtest:
+                return 0
+            
             logger.info("正在測試下載速度...")
             download_speed = self._speedtest.download() / 1_000_000  # 轉換為 Mbps
             logger.info(f"下載速度: {download_speed:.2f} Mbps")
@@ -102,6 +112,9 @@ class SpeedTestManager:
     def _test_upload(self):
         """測試上傳速度"""
         try:
+            if not self._speedtest:
+                return 0
+            
             logger.info("正在測試上傳速度...")
             upload_speed = self._speedtest.upload() / 1_000_000  # 轉換為 Mbps
             logger.info(f"上傳速度: {upload_speed:.2f} Mbps")
@@ -156,6 +169,7 @@ class SpeedTestManager:
                 logger.error(f"速度測試過程中發生錯誤: {str(e)}")
             finally:
                 self._running = False
+                self._speedtest = None  # 清理 speedtest 實例
                 callback(result)
         
         # 在新執行緒中運行測試
