@@ -10,35 +10,75 @@ import subprocess
 import threading
 import time
 from queue import Empty, Queue
+from pathlib import Path
 from logger import logger
 from config_manager import ConfigManager
+
+class VersionManager:
+    """版本管理類"""
+    def __init__(self):
+        self.version_file = Path('version.json')
+        self.versions = self._load_versions()
+    
+    def _load_versions(self):
+        """載入版本資訊"""
+        if self.version_file.exists():
+            try:
+                return json.loads(self.version_file.read_text(encoding='utf-8'))
+            except Exception as e:
+                logger.error(f"讀取版本資訊失敗: {str(e)}")
+        return self._download_versions()
+    
+    def _download_versions(self):
+        """從 GitHub 下載版本資訊"""
+        try:
+            url = "https://raw.githubusercontent.com/Minidoracat/kcptube_launch/main/version.json"
+            response = requests.get(url)
+            response.raise_for_status()
+            
+            versions = response.json()
+            self.version_file.write_text(json.dumps(versions, indent=4, ensure_ascii=False), encoding='utf-8')
+            logger.info(f"成功下載版本資訊: {versions}")
+            return versions
+        except Exception as e:
+            logger.error(f"下載版本資訊失敗: {str(e)}")
+            return {
+                "launcher_version": "unknown",
+                "kcptube_version": "unknown",
+                "last_updated": datetime.now().strftime("%Y-%m-%d")
+            }
+    
+    @property
+    def launcher_version(self):
+        """取得啟動器版本"""
+        return self.versions.get('launcher_version', 'unknown')
+    
+    @property
+    def kcptube_version(self):
+        """取得 KCPTube 版本"""
+        return self.versions.get('kcptube_version', 'unknown')
+    
+    @property
+    def last_updated(self):
+        """取得最後更新日期"""
+        return self.versions.get('last_updated', 'unknown')
 
 class KCPTubeManager:
     """KCPTube 管理類"""
     def __init__(self):
-        self.current_version = self._get_current_version()
+        self._ensure_directories()
+        self.version_manager = VersionManager()
+        self.config_manager = ConfigManager("Minidoracat", "kcptube_launch")
         self.process = None
         self.monitor_threads = []
-        self._ensure_directories()
-        self.config_manager = ConfigManager("Minidoracat", "kcptube_launch")
-        logger.info(f"KCPTube 管理器初始化完成，當前版本: {self.current_version}")
+        logger.info(f"KCPTube 管理器初始化完成，版本: {self.version_manager.kcptube_version}")
     
     def _ensure_directories(self):
         """確保必要的目錄存在"""
-        os.makedirs('kcptube', exist_ok=True)
-        os.makedirs('logs', exist_ok=True)
-        logger.debug("確保必要目錄存在: kcptube/, logs/")
-    
-    def _get_current_version(self):
-        """獲取當前版本"""
-        version_file = os.path.join('kcptube', 'version.txt')
-        if os.path.exists(version_file):
-            with open(version_file, 'r') as f:
-                version = f.read().strip()
-                logger.debug(f"讀取到當前版本: {version}")
-                return version
-        logger.warning("未找到版本檔案")
-        return None
+        Path('kcptube').mkdir(exist_ok=True)
+        Path('logs').mkdir(exist_ok=True)
+        Path('conf').mkdir(exist_ok=True)
+        logger.debug("確保必要目錄存在: kcptube/, logs/, conf/")
     
     def sync_configs(self):
         """同步設定檔"""
@@ -50,17 +90,17 @@ class KCPTubeManager:
             logger.warning("KCPTube 已在運行中")
             return False
             
-        version_path = os.path.join('kcptube', self.current_version)
-        exe_path = os.path.join(version_path, 'kcptube.exe')
+        version_path = Path('kcptube') / self.version_manager.kcptube_version
+        exe_path = version_path / 'kcptube.exe'
         
-        if not os.path.exists(exe_path):
+        if not exe_path.exists():
             logger.error(f"執行檔不存在: {exe_path}")
             return False
             
         try:
             # 建立輸出日誌檔案
-            output_log = os.path.join('logs', 'kcptube_output.log')
-            error_log = os.path.join('logs', 'kcptube_error.log')
+            output_log = Path('logs/kcptube_output.log')
+            error_log = Path('logs/kcptube_error.log')
             
             # 寫入啟動時間戳記
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -72,7 +112,7 @@ class KCPTubeManager:
             
             # 啟動程序
             self.process = subprocess.Popen(
-                [exe_path, config_path],
+                [str(exe_path), str(config_path)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP,
@@ -224,7 +264,10 @@ class MainWindow:
         version_frame.pack(fill=tk.X, pady=(0, 10))
         self.version_label = ttk.Label(
             version_frame,
-            text=f'當前版本: {self.kcptube.current_version or "未知"}'
+            text=(
+                f'啟動器版本: {self.kcptube.version_manager.launcher_version} | '
+                f'KCPTube 版本: {self.kcptube.version_manager.kcptube_version}'
+            )
         )
         self.version_label.pack(side=tk.LEFT)
         

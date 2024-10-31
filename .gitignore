@@ -12,7 +12,6 @@ logs/
 
 # 執行檔案目錄（由 Release 管理）
 kcptube/*
-!kcptube/version.txt
 
 # 系統檔案
 .DS_Store
@@ -28,3 +27,7 @@ build/
 dist/
 release/
 *.spec
+
+# 保留檔案
+!version.json
+!conf/*.conf
