@@ -11,6 +11,7 @@ import threading
 import time
 from queue import Empty, Queue
 from logger import logger
+from config_manager import ConfigManager
 
 class KCPTubeManager:
     """KCPTube 管理類"""
@@ -19,14 +20,14 @@ class KCPTubeManager:
         self.process = None
         self.monitor_threads = []
         self._ensure_directories()
+        self.config_manager = ConfigManager("Minidoracat", "kcptube_launch")
         logger.info(f"KCPTube 管理器初始化完成，當前版本: {self.current_version}")
     
     def _ensure_directories(self):
         """確保必要的目錄存在"""
         os.makedirs('kcptube', exist_ok=True)
-        os.makedirs('conf', exist_ok=True)
         os.makedirs('logs', exist_ok=True)
-        logger.debug("確保必要目錄存在: kcptube/, conf/, logs/")
+        logger.debug("確保必要目錄存在: kcptube/, logs/")
     
     def _get_current_version(self):
         """獲取當前版本"""
@@ -38,6 +39,10 @@ class KCPTubeManager:
                 return version
         logger.warning("未找到版本檔案")
         return None
+    
+    def sync_configs(self):
+        """同步設定檔"""
+        return self.config_manager.sync_configs()
     
     def start_kcptube(self, config_path):
         """啟動 KCPTube"""
@@ -187,7 +192,22 @@ class MainWindow:
         
         self.init_ui()
         self.setup_log_monitor()
+        
+        # 同步設定檔
+        self.sync_configs()
+        
         logger.info("使用者介面初始化完成")
+    
+    def sync_configs(self):
+        """同步設定檔"""
+        logger.info("正在同步設定檔...")
+        try:
+            self.kcptube.sync_configs()
+            self.load_nodes()  # 重新載入節點列表
+            logger.info("設定檔同步完成")
+        except Exception as e:
+            logger.error(f"同步設定檔失敗: {str(e)}")
+            messagebox.showerror('錯誤', '同步設定檔失敗，請檢查網路連接')
     
     def init_ui(self):
         """初始化使用者介面"""
@@ -207,6 +227,15 @@ class MainWindow:
             text=f'當前版本: {self.kcptube.current_version or "未知"}'
         )
         self.version_label.pack(side=tk.LEFT)
+        
+        # 同步按鈕
+        self.sync_button = ttk.Button(
+            version_frame,
+            text='同步設定',
+            command=self.sync_configs,
+            width=10
+        )
+        self.sync_button.pack(side=tk.RIGHT)
         
         # 節點選擇
         node_frame = ttk.Frame(control_frame)
@@ -284,7 +313,7 @@ class MainWindow:
                     tag = f"level_{record.levelname}"
                     last_line = f"{self.log_text.get('end-2c linestart', 'end-1c')}\n"
                     self.log_text.tag_add(tag, f"end-{len(last_line)}c", "end-1c")
-            except Empty:  # 使用導入的 Empty 而不是 queue.Empty
+            except Empty:
                 pass
             finally:
                 # 每 100ms 檢查一次佇列
@@ -305,15 +334,14 @@ class MainWindow:
     
     def load_nodes(self):
         """載入節點列表"""
-        conf_dir = 'conf'
+        conf_dir = Path("conf")
         self.node_configs = {}
-        if os.path.exists(conf_dir):
-            for file in os.listdir(conf_dir):
-                if file.endswith('.conf'):
-                    name = file[:-5]
-                    path = os.path.join(conf_dir, file)
-                    self.node_configs[name] = path
-                    logger.debug(f"找到節點設定檔: {name} -> {path}")
+        
+        if conf_dir.exists():
+            for file in conf_dir.glob("*.conf"):
+                name = file.stem
+                self.node_configs[name] = str(file)
+                logger.debug(f"找到節點設定檔: {name} -> {file}")
             
             if self.node_configs:
                 self.node_combo['values'] = list(self.node_configs.keys())
@@ -336,6 +364,7 @@ class MainWindow:
             self.status_label['text'] = '狀態: 運行中'
             self.start_button['state'] = 'disabled'
             self.stop_button['state'] = 'normal'
+            self.sync_button['state'] = 'disabled'
             logger.info(f"節點 {selected} 啟動成功")
         else:
             logger.error(f"節點 {selected} 啟動失敗")
@@ -348,6 +377,7 @@ class MainWindow:
             self.status_label['text'] = '狀態: 已停止'
             self.start_button['state'] = 'normal'
             self.stop_button['state'] = 'disabled'
+            self.sync_button['state'] = 'normal'
             logger.info("服務已停止")
 
 if __name__ == '__main__':
