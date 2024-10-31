@@ -22,3 +22,9 @@ Thumbs.db
 __pycache__/
 *.pyc
 venv/
+
+# 建置和發布
+build/
+dist/
+release/
+*.spec

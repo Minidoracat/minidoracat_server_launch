@@ -35,9 +35,11 @@ jobs:
     - name: 建立發布套件
       run: |
         mkdir release
+        mkdir release\conf
         copy dist\main.exe release\kcptube_launcher.exe
         copy kcptube\version.txt release\
         copy README.md release\
+        xcopy /E /I conf\*.conf release\conf\
     
     - name: 建立發布版本
       id: create_release
@@ -47,6 +49,7 @@ jobs:
           release/kcptube_launcher.exe
           release/version.txt
           release/README.md
+          release/conf/*
         draft: false
         prerelease: false
         generate_release_notes: true
