@@ -1,273 +1,43 @@
 import sys
-import os
-import json
-import sqlite3
-import requests
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 from datetime import datetime
-import subprocess
-import threading
-import time
-from queue import Empty, Queue
+from queue import Empty
 from pathlib import Path
+import re
 from logger import logger
-from config_manager import ConfigManager
-
-class VersionManager:
-    """版本管理類"""
-    def __init__(self):
-        self.version_file = Path('version.json')
-        self.versions = self._load_versions()
-    
-    def _load_versions(self):
-        """載入版本資訊"""
-        if self.version_file.exists():
-            try:
-                return json.loads(self.version_file.read_text(encoding='utf-8'))
-            except Exception as e:
-                logger.error(f"讀取版本資訊失敗: {str(e)}")
-        return self._download_versions()
-    
-    def _download_versions(self):
-        """從 GitHub 下載版本資訊"""
-        try:
-            url = "https://raw.githubusercontent.com/Minidoracat/kcptube_launch/main/version.json"
-            response = requests.get(url)
-            response.raise_for_status()
-            
-            versions = response.json()
-            self.version_file.write_text(json.dumps(versions, indent=4, ensure_ascii=False), encoding='utf-8')
-            logger.info(f"成功下載版本資訊: {versions}")
-            return versions
-        except Exception as e:
-            logger.error(f"下載版本資訊失敗: {str(e)}")
-            return {
-                "launcher_version": "unknown",
-                "kcptube_version": "unknown",
-                "last_updated": datetime.now().strftime("%Y-%m-%d")
-            }
-    
-    @property
-    def launcher_version(self):
-        """取得啟動器版本"""
-        return self.versions.get('launcher_version', 'unknown')
-    
-    @property
-    def kcptube_version(self):
-        """取得 KCPTube 版本"""
-        return self.versions.get('kcptube_version', 'unknown')
-    
-    @property
-    def last_updated(self):
-        """取得最後更新日期"""
-        return self.versions.get('last_updated', 'unknown')
-
-class KCPTubeManager:
-    """KCPTube 管理類"""
-    def __init__(self):
-        self._ensure_directories()
-        self.version_manager = VersionManager()
-        self.config_manager = ConfigManager("Minidoracat", "kcptube_launch")
-        self.process = None
-        self.monitor_threads = []
-        logger.info(f"KCPTube 管理器初始化完成，版本: {self.version_manager.kcptube_version}")
-    
-    def _ensure_directories(self):
-        """確保必要的目錄存在"""
-        Path('kcptube').mkdir(exist_ok=True)
-        Path('logs').mkdir(exist_ok=True)
-        Path('conf').mkdir(exist_ok=True)
-        logger.debug("確保必要目錄存在: kcptube/, logs/, conf/")
-    
-    def _download_kcptube(self, version):
-        """下載 KCPTube 執行檔"""
-        try:
-            version_path = Path('kcptube') / version
-            version_path.mkdir(exist_ok=True)
-            exe_path = version_path / 'kcptube.exe'
-            
-            # 從 GitHub main 分支下載
-            logger.info(f"正在從 GitHub 下載 KCPTube {version} 版本...")
-            url = f"https://raw.githubusercontent.com/Minidoracat/kcptube_launch/main/kcptube/{version}/kcptube.exe"
-            
-            response = requests.get(url, timeout=30)  # 添加超時設置
-            response.raise_for_status()
-            
-            exe_path.write_bytes(response.content)
-            logger.info(f"成功下載 KCPTube {version} 版本")
-            return True
-        except requests.exceptions.RequestException as e:
-            logger.error(f"下載 KCPTube {version} 版本失敗: {str(e)}")
-            if isinstance(e, requests.exceptions.HTTPError) and e.response.status_code == 404:
-                logger.error(f"找不到 KCPTube {version} 版本，請確認版本號是否正確")
-            return False
-        except Exception as e:
-            logger.error(f"下載 KCPTube {version} 版本時發生錯誤: {str(e)}")
-            return False
-    
-    def _ensure_kcptube_exists(self, version):
-        """確保指定版本的 KCPTube 存在"""
-        version_path = Path('kcptube') / version
-        exe_path = version_path / 'kcptube.exe'
-        
-        if not exe_path.exists():
-            logger.info(f"未找到 KCPTube {version} 版本，嘗試下載...")
-            return self._download_kcptube(version)
-        
-        return True
-    
-    def sync_configs(self):
-        """同步設定檔"""
-        return self.config_manager.sync_configs()
-    
-    def start_kcptube(self, config_path):
-        """啟動 KCPTube"""
-        if self.process:
-            logger.warning("KCPTube 已在運行中")
-            return False
-        
-        # 確保有正確版本的執行檔
-        kcptube_version = self.version_manager.kcptube_version
-        if not self._ensure_kcptube_exists(kcptube_version):
-            logger.error("無法獲取 KCPTube 執行檔")
-            return False
-        
-        version_path = Path('kcptube') / kcptube_version
-        exe_path = version_path / 'kcptube.exe'
-        
-        try:
-            # 建立輸出日誌檔案
-            output_log = Path('logs/kcptube_output.log')
-            error_log = Path('logs/kcptube_error.log')
-            
-            # 寫入啟動時間戳記
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            for log_file in [output_log, error_log]:
-                with open(log_file, 'a', encoding='utf-8') as f:
-                    f.write(f"\n=== KCPTube 啟動於 {timestamp} ===\n")
-            
-            logger.info(f"正在啟動 KCPTube，設定檔: {config_path}")
-            
-            # 啟動程序
-            self.process = subprocess.Popen(
-                [str(exe_path), str(config_path)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP,
-                bufsize=1,
-                universal_newlines=True
-            )
-            
-            # 開始監控輸出
-            self._start_output_monitor(output_log, error_log)
-            
-            logger.info("KCPTube 啟動成功")
-            return True
-        except Exception as e:
-            logger.error(f"KCPTube 啟動失敗: {str(e)}")
-            return False
-    
-    def _start_output_monitor(self, output_log, error_log):
-        """開始監控程序輸出"""
-        def monitor_output(pipe, log_file, is_error=False):
-            while self.process and not self.process.poll():
-                try:
-                    line = pipe.readline()
-                    if not line:
-                        time.sleep(0.1)  # 避免過度消耗 CPU
-                        continue
-                    
-                    # 移除尾部的空白字元
-                    line = line.rstrip()
-                    
-                    # 寫入到對應的日誌檔案
-                    with open(log_file, 'a', encoding='utf-8') as f:
-                        f.write(f"{line}\n")
-                        f.flush()
-                    
-                    # 同時記錄到主日誌
-                    if is_error:
-                        logger.error(f"KCPTube: {line}")
-                    else:
-                        logger.info(f"KCPTube: {line}")
-                except Exception as e:
-                    if self.process and not self.process.poll():
-                        logger.error(f"監控輸出時發生錯誤: {str(e)}")
-                    break
-        
-        # 清除舊的監控執行緒
-        self.monitor_threads.clear()
-        
-        # 監控標準輸出
-        stdout_thread = threading.Thread(
-            target=monitor_output,
-            args=(self.process.stdout, output_log, False),
-            daemon=True
-        )
-        stdout_thread.start()
-        self.monitor_threads.append(stdout_thread)
-        
-        # 監控錯誤輸出
-        stderr_thread = threading.Thread(
-            target=monitor_output,
-            args=(self.process.stderr, error_log, True),
-            daemon=True
-        )
-        stderr_thread.start()
-        self.monitor_threads.append(stderr_thread)
-    
-    def stop_kcptube(self):
-        """停止 KCPTube"""
-        if not self.process:
-            logger.warning("嘗試停止未運行的 KCPTube")
-            return False
-        
-        try:
-            logger.info("正在停止 KCPTube")
-            
-            # 記錄停止時間
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            for log_file in ['logs/kcptube_output.log', 'logs/kcptube_error.log']:
-                try:
-                    with open(log_file, 'a', encoding='utf-8') as f:
-                        f.write(f"\n=== KCPTube 停止於 {timestamp} ===\n")
-                except Exception as e:
-                    logger.error(f"寫入停止時間戳記失敗: {str(e)}")
-            
-            # 停止程序
-            process = self.process  # 保存引用
-            self.process = None  # 先清除引用，這樣監控執行緒就會結束
-            
-            process.terminate()
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
-            
-            # 等待監控執行緒結束
-            for thread in self.monitor_threads:
-                thread.join(timeout=1)
-            self.monitor_threads.clear()
-            
-            logger.info("KCPTube 已停止")
-            return True
-        except Exception as e:
-            logger.error(f"停止 KCPTube 時發生錯誤: {str(e)}")
-            return False
+from version_manager import VersionManager
+from kcptube_manager import KCPTubeManager
+from speed_test_manager import SpeedTestManager
 
 class MainWindow:
     """主視窗"""
     def __init__(self, root):
         self.root = root
-        self.root.title('KCPTube 啟動器')
-        self.root.geometry('600x500')  # 加大視窗尺寸
-        self.root.resizable(True, True)  # 允許調整視窗大小
+        self.root.title('Minidoracat 伺服器連線加速器')
+        self.root.geometry('800x700')  # 加寬視窗
+        self.root.resizable(True, True)
+        
+        # 設定主題色彩
+        self.colors = {
+            'bg': '#1E1E1E',           # 深色背景
+            'button': '#3C4043',       # 按鈕背景
+            'button_hover': '#4E5255', # 按鈕懸停
+            'text': '#FFFFFF',         # 文字
+            'accent': '#007AFF',       # 強調色
+            'error': '#FF3B30',        # 錯誤
+            'success': '#34C759',      # 成功
+            'warning': '#FF9500'       # 警告
+        }
+        
+        # 設定根視窗背景
+        self.root.configure(bg=self.colors['bg'])
         
         logger.info("啟動器開始運行")
         
-        # 初始化 KCPTube 管理器
+        # 初始化管理器
         self.kcptube = KCPTubeManager()
+        self.speedtest = SpeedTestManager()
         
         self.init_ui()
         self.setup_log_monitor()
@@ -275,88 +45,242 @@ class MainWindow:
         # 同步設定檔
         self.sync_configs()
         
+        # 載入速度設定
+        self.load_speed_settings()
+        
+        # 檢查更新
+        self.check_updates()
+        
         logger.info("使用者介面初始化完成")
-    
-    def sync_configs(self):
-        """同步設定檔"""
-        logger.info("正在同步設定檔...")
-        try:
-            self.kcptube.sync_configs()
-            self.load_nodes()  # 重新載入節點列表
-            logger.info("設定檔同步完成")
-        except Exception as e:
-            logger.error(f"同步設定檔失敗: {str(e)}")
-            messagebox.showerror('錯誤', '同步設定檔失敗，請檢查網路連接')
     
     def init_ui(self):
         """初始化使用者介面"""
+        # 設定全局樣式
+        style = ttk.Style()
+        style.theme_use('default')
+        
+        # 配置樣式
+        style.configure('Main.TFrame', background=self.colors['bg'])
+        style.configure('Card.TFrame', background=self.colors['button'])
+        style.configure(
+            'Custom.TButton',
+            background=self.colors['button'],
+            foreground=self.colors['text'],
+            font=('微軟正黑體', 10),
+            padding=5
+        )
+        style.configure(
+            'Action.TButton',
+            background=self.colors['accent'],
+            foreground=self.colors['text'],
+            font=('微軟正黑體', 10, 'bold'),
+            padding=5
+        )
+        style.configure(
+            'Custom.TLabel',
+            background=self.colors['bg'],
+            foreground=self.colors['text'],
+            font=('微軟正黑體', 10)
+        )
+        style.configure(
+            'Title.TLabel',
+            background=self.colors['bg'],
+            foreground=self.colors['text'],
+            font=('微軟正黑體', 12, 'bold')
+        )
+        style.configure(
+            'Card.TLabelframe',
+            background=self.colors['button'],
+            foreground=self.colors['text']
+        )
+        style.configure(
+            'Card.TLabelframe.Label',
+            background=self.colors['button'],
+            foreground=self.colors['text'],
+            font=('微軟正黑體', 10, 'bold')
+        )
+        
         # 主框架
-        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame = ttk.Frame(self.root, style='Main.TFrame', padding="20")
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # 上半部分（控制區）
-        control_frame = ttk.Frame(main_frame)
-        control_frame.pack(fill=tk.X, pady=(0, 10))
+        # 頂部區域
+        top_frame = ttk.Frame(main_frame, style='Main.TFrame')
+        top_frame.pack(fill=tk.X, pady=(0, 20))
         
-        # 版本資訊
-        version_frame = ttk.Frame(control_frame)
-        version_frame.pack(fill=tk.X, pady=(0, 10))
+        # 版本資訊（左側）
+        version_frame = ttk.Frame(top_frame, style='Main.TFrame')
+        version_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
         self.version_label = ttk.Label(
             version_frame,
-            text=(
-                f'啟動器版本: {self.kcptube.version_manager.launcher_version} | '
-                f'KCPTube 版本: {self.kcptube.version_manager.kcptube_version}'
-            )
+            text="正在載入版本資訊...",
+            style='Custom.TLabel'
         )
         self.version_label.pack(side=tk.LEFT)
         
-        # 同步按鈕
+        # 更新按鈕（右側）
         self.sync_button = ttk.Button(
-            version_frame,
-            text='同步設定',
+            top_frame,
+            text='下載節點設定',
             command=self.sync_configs,
-            width=10
+            style='Custom.TButton',
+            width=15
         )
         self.sync_button.pack(side=tk.RIGHT)
         
-        # 節點選擇
-        node_frame = ttk.Frame(control_frame)
-        node_frame.pack(fill=tk.X, pady=(0, 10))
-        ttk.Label(node_frame, text='節點選擇:').pack(side=tk.LEFT)
-        self.node_combo = ttk.Combobox(node_frame, state='readonly')
-        self.node_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        # 中間區域
+        middle_frame = ttk.Frame(main_frame, style='Main.TFrame')
+        middle_frame.pack(fill=tk.X, pady=(0, 20))
         
-        # 控制按鈕
-        button_frame = ttk.Frame(control_frame)
-        button_frame.pack(fill=tk.X, pady=(0, 10))
+        # 節點選擇區域
+        node_frame = ttk.LabelFrame(
+            middle_frame,
+            text="節點選擇",
+            style='Card.TLabelframe',
+            padding="10"
+        )
+        node_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # 節點選擇上半部
+        node_top_frame = ttk.Frame(node_frame, style='Card.TFrame')
+        node_top_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        # 節點下拉選單
+        self.node_combo = ttk.Combobox(
+            node_top_frame,
+            state='readonly',
+            font=('微軟正黑體', 10),
+            width=30
+        )
+        self.node_combo.pack(side=tk.LEFT, padx=(0, 10))
+        self.node_combo.bind('<<ComboboxSelected>>', self.on_node_selected)
+        
+        # 節點速度資訊
+        self.node_speed_label = ttk.Label(
+            node_top_frame,
+            text="節點速度設定: 未選擇",
+            style='Custom.TLabel'
+        )
+        self.node_speed_label.pack(side=tk.LEFT)
+        
+        # 節點選擇下半部
+        node_bottom_frame = ttk.Frame(node_frame, style='Card.TFrame')
+        node_bottom_frame.pack(fill=tk.X)
+        
+        # 啟動按鈕
         self.start_button = ttk.Button(
-            button_frame,
-            text='啟動',
+            node_bottom_frame,
+            text='啟動加速',
             command=self.start_service,
+            style='Action.TButton',
             width=15
         )
         self.start_button.pack(side=tk.LEFT, padx=(0, 5))
+        
+        # 停止按鈕
         self.stop_button = ttk.Button(
-            button_frame,
-            text='停止',
+            node_bottom_frame,
+            text='停止加速',
             command=self.stop_service,
             state='disabled',
+            style='Custom.TButton',
             width=15
         )
         self.stop_button.pack(side=tk.LEFT)
         
         # 狀態顯示
-        status_frame = ttk.Frame(control_frame)
-        status_frame.pack(fill=tk.X, pady=(0, 10))
         self.status_label = ttk.Label(
-            status_frame,
+            node_bottom_frame,
             text='狀態: 未啟動',
-            font=('微軟正黑體', 9)
+            style='Custom.TLabel'
         )
-        self.status_label.pack(side=tk.LEFT)
+        self.status_label.pack(side=tk.RIGHT)
         
-        # 下半部分（日誌顯示區）
-        log_frame = ttk.LabelFrame(main_frame, text="日誌", padding="5")
+        # 速度設定區域
+        speed_frame = ttk.LabelFrame(
+            middle_frame,
+            text="網路速度設定",
+            style='Card.TLabelframe',
+            padding="10"
+        )
+        speed_frame.pack(fill=tk.X)
+        
+        # 速度設定上半部
+        speed_top_frame = ttk.Frame(speed_frame, style='Card.TFrame')
+        speed_top_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        # 下載速度設定
+        ttk.Label(
+            speed_top_frame,
+            text="下載速度 (M):",
+            style='Custom.TLabel'
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
+        self.download_speed_var = tk.StringVar()
+        self.download_speed_entry = ttk.Entry(
+            speed_top_frame,
+            textvariable=self.download_speed_var,
+            width=10,
+            font=('微軟正黑體', 10)
+        )
+        self.download_speed_entry.pack(side=tk.LEFT, padx=(0, 20))
+        
+        # 上傳速度設定
+        ttk.Label(
+            speed_top_frame,
+            text="上傳速度 (M):",
+            style='Custom.TLabel'
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
+        self.upload_speed_var = tk.StringVar()
+        self.upload_speed_entry = ttk.Entry(
+            speed_top_frame,
+            textvariable=self.upload_speed_var,
+            width=10,
+            font=('微軟正黑體', 10)
+        )
+        self.upload_speed_entry.pack(side=tk.LEFT, padx=(0, 20))
+        
+        # 速度設定下半部
+        speed_bottom_frame = ttk.Frame(speed_frame, style='Card.TFrame')
+        speed_bottom_frame.pack(fill=tk.X)
+        
+        # 設定按鈕
+        self.apply_speed_button = ttk.Button(
+            speed_bottom_frame,
+            text="套用設定到節點",
+            command=self.apply_speed_settings,
+            style='Custom.TButton',
+            width=15
+        )
+        self.apply_speed_button.pack(side=tk.LEFT, padx=(0, 5))
+        
+        # 速度測試按鈕
+        self.speedtest_button = ttk.Button(
+            speed_bottom_frame,
+            text="測試網路速度",
+            command=self.start_speedtest,
+            style='Custom.TButton',
+            width=15
+        )
+        self.speedtest_button.pack(side=tk.LEFT)
+        
+        # 速度資訊顯示
+        self.speed_info_label = ttk.Label(
+            speed_bottom_frame,
+            text="目前未設定速度",
+            style='Custom.TLabel'
+        )
+        self.speed_info_label.pack(side=tk.RIGHT)
+        
+        # 日誌顯示區
+        log_frame = ttk.LabelFrame(
+            main_frame,
+            text="系統日誌",
+            style='Card.TLabelframe',
+            padding="10"
+        )
         log_frame.pack(fill=tk.BOTH, expand=True)
         
         # 日誌文字框
@@ -364,21 +288,39 @@ class MainWindow:
             log_frame,
             wrap=tk.WORD,
             font=('Consolas', 9),
-            background='black',
-            foreground='white'
+            background='#2D2D2D',
+            foreground='#FFFFFF',
+            insertbackground='#FFFFFF'
         )
         self.log_text.pack(fill=tk.BOTH, expand=True)
         
         # 載入節點列表
         self.load_nodes()
-        
-        # 設定樣式
-        style = ttk.Style()
-        style.configure('TButton', font=('微軟正黑體', 9))
-        style.configure('TLabel', font=('微軟正黑體', 9))
-        style.configure('TCombobox', font=('微軟正黑體', 9))
-        style.configure('TLabelframe', font=('微軟正黑體', 9))
-        style.configure('TLabelframe.Label', font=('微軟正黑體', 9))
+    
+    def get_node_speeds(self, config_path):
+        """讀取節點的速度設定"""
+        try:
+            content = Path(config_path).read_text(encoding='utf-8')
+            
+            # 使用正則表達式找到速度設定
+            inbound_match = re.search(r'inbound_bandwidth=(\d+)M', content)
+            outbound_match = re.search(r'outbound_bandwidth=(\d+)M', content)
+            
+            inbound = int(inbound_match.group(1)) if inbound_match else 0
+            outbound = int(outbound_match.group(1)) if outbound_match else 0
+            
+            return inbound, outbound
+        except Exception as e:
+            logger.error(f"讀取節點速度設定失敗: {str(e)}")
+            return 0, 0
+    
+    def on_node_selected(self, event):
+        """當選擇節點時更新顯示"""
+        selected = self.node_combo.get()
+        if selected:
+            config_path = self.node_configs.get(selected)
+            download, upload = self.get_node_speeds(config_path)
+            self.node_speed_label['text'] = f"節點速度設定: 下載 {download}M | 上傳 {upload}M"
     
     def setup_log_monitor(self):
         """設置日誌監控"""
@@ -402,9 +344,9 @@ class MainWindow:
                 self.root.after(100, check_log_queue)
         
         # 設定不同日誌等級的顏色
-        self.log_text.tag_config('level_ERROR', foreground='red')
-        self.log_text.tag_config('level_WARNING', foreground='yellow')
-        self.log_text.tag_config('level_INFO', foreground='white')
+        self.log_text.tag_config('level_ERROR', foreground=self.colors['error'])
+        self.log_text.tag_config('level_WARNING', foreground=self.colors['warning'])
+        self.log_text.tag_config('level_INFO', foreground=self.colors['text'])
         self.log_text.tag_config('level_DEBUG', foreground='gray')
         
         # 開始監控
@@ -428,9 +370,81 @@ class MainWindow:
             if self.node_configs:
                 self.node_combo['values'] = list(self.node_configs.keys())
                 self.node_combo.current(0)
+                # 觸發節點選擇事件來更新顯示
+                self.on_node_selected(None)
                 logger.info(f"載入了 {len(self.node_configs)} 個節點設定")
             else:
                 logger.warning("未找到任何節點設定檔")
+    
+    def load_speed_settings(self):
+        """載入速度設定"""
+        speeds = self.speedtest.get_current_speeds()
+        self.download_speed_var.set(str(int(speeds['download_speed'])))
+        self.upload_speed_var.set(str(int(speeds['upload_speed'])))
+        self.update_speed_info()
+    
+    def update_speed_info(self):
+        """更新速度資訊顯示"""
+        speeds = self.speedtest.get_current_speeds()
+        mode = "手動設定" if speeds['manual_mode'] else "自動測試"
+        last_test = speeds.get('last_test', '從未測試')
+        self.speed_info_label['text'] = (
+            f"目前速度設定 ({mode}):\n"
+            f"下載: {int(speeds['download_speed'])}M | "
+            f"上傳: {int(speeds['upload_speed'])}M\n"
+            f"最後更新: {last_test}"
+        )
+    
+    def apply_speed_settings(self):
+        """套用速度設定"""
+        try:
+            download = float(self.download_speed_var.get())
+            upload = float(self.upload_speed_var.get())
+            
+            if download <= 0 or upload <= 0:
+                raise ValueError("速度必須大於 0")
+            
+            self.speedtest.set_manual_speeds(download, upload)
+            self.update_speed_info()
+            
+            # 更新設定檔
+            if self.speedtest.update_conf_files():
+                messagebox.showinfo('成功', '速度設定已更新')
+                # 更新節點速度顯示
+                self.on_node_selected(None)
+            else:
+                messagebox.showwarning('警告', '速度設定已儲存，但更新設定檔時發生錯誤')
+        except ValueError as e:
+            messagebox.showerror('錯誤', '請輸入有效的數字')
+    
+    def start_speedtest(self):
+        """開始速度測試"""
+        if self.speedtest.is_running():
+            logger.warning("速度測試已在進行中")
+            return
+        
+        def on_test_complete(result):
+            """速度測試完成的回調函數"""
+            self.download_speed_var.set(str(int(result['download_speed'])))
+            self.upload_speed_var.set(str(int(result['upload_speed'])))
+            self.update_speed_info()
+            
+            # 更新設定檔
+            if self.speedtest.update_conf_files():
+                messagebox.showinfo('成功', '速度測試完成並已更新設定')
+                # 更新節點速度顯示
+                self.on_node_selected(None)
+            else:
+                messagebox.showwarning('警告', '速度測試完成，但更新設定檔時發生錯誤')
+            
+            self.speedtest_button['text'] = '測試網路速度'
+            self.speedtest_button['state'] = 'normal'
+        
+        self.speedtest_button['text'] = '測試中...'
+        self.speedtest_button['state'] = 'disabled'
+        self.speed_info_label['text'] = '正在進行速度測試，請稍候...'
+        
+        self.speedtest.start_test(on_test_complete)
     
     def start_service(self):
         """啟動服務"""
@@ -461,6 +475,48 @@ class MainWindow:
             self.stop_button['state'] = 'disabled'
             self.sync_button['state'] = 'normal'
             logger.info("服務已停止")
+    
+    def sync_configs(self):
+        """同步設定檔"""
+        logger.info("正在同步設定檔...")
+        try:
+            self.kcptube.sync_configs()
+            self.load_nodes()  # 重新載入節點列表
+            logger.info("設定檔同步完成")
+        except Exception as e:
+            logger.error(f"同步設定檔失敗: {str(e)}")
+            messagebox.showerror('錯誤', '同步設定檔失敗，請檢查網路連接')
+    
+    def update_version_info(self):
+        """更新版本資訊顯示"""
+        version_info = self.kcptube.version_manager.get_version_info()
+        
+        # 構建版本資訊文字
+        version_text = (
+            f"本機版本 - 啟動器: {version_info['local_launcher']} | "
+            f"KCPTube: {version_info['local_kcptube']}\n"
+            f"最新版本 - 啟動器: {version_info['remote_launcher']} | "
+            f"KCPTube: {version_info['remote_kcptube']}"
+        )
+        
+        self.version_label['text'] = version_text
+        
+        # 如果有更新，顯示提醒
+        if version_info['has_launcher_update'] or version_info['has_kcptube_update']:
+            update_items = []
+            if version_info['has_launcher_update']:
+                update_items.append("啟動器")
+            if version_info['has_kcptube_update']:
+                update_items.append("KCPTube")
+            
+            messagebox.showinfo(
+                '發現更新',
+                f"發現新版本可用：{' 和 '.join(update_items)}，請至 GitHub 下載更新。"
+            )
+    
+    def check_updates(self):
+        """檢查更新"""
+        self.update_version_info()
 
 if __name__ == '__main__':
     try:
