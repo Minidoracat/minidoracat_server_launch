@@ -17,7 +17,7 @@ class MainWindow:
     """主視窗"""
     def __init__(self, root):
         self.root = root
-        self.root.title('KCPTube 遊戲加速器')
+        self.root.title('Minidoracat 伺服器專用加速器')
         self.root.geometry('800x700')  # 加寬視窗
         self.root.resizable(True, True)
         
@@ -43,6 +43,9 @@ class MainWindow:
         self.kcptube = KCPTubeManager()
         self.speedtest = SpeedTestManager()
         
+        # 註冊視窗關閉事件處理
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
         self.init_ui()
         self.setup_log_monitor()
         
@@ -56,6 +59,21 @@ class MainWindow:
         self.check_updates()
         
         logger.info("使用者介面初始化完成")
+    
+    def on_closing(self):
+        """視窗關閉事件處理"""
+        try:
+            # 先停止 KCPTube
+            if self.kcptube.process:
+                logger.info("視窗關閉，正在停止 KCPTube...")
+                self.kcptube.stop_kcptube()
+            
+            # 然後關閉視窗
+            logger.info("正在關閉啟動器...")
+            self.root.destroy()
+        except Exception as e:
+            logger.error(f"關閉程式時發生錯誤: {str(e)}")
+            self.root.destroy()
     
     def init_ui(self):
         """初始化使用者介面"""
