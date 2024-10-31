@@ -43,11 +43,7 @@ jobs:
     - name: 建立發布套件
       run: |
         mkdir release
-        mkdir release\conf
         copy dist\main.exe release\kcptube_launcher.exe
-        copy version.json release\
-        copy README.md release\
-        xcopy /E /I conf\*.conf release\conf\
     
     - name: 建立發布版本
       id: create_release
@@ -55,9 +51,6 @@ jobs:
       with:
         files: |
           release/kcptube_launcher.exe
-          release/version.json
-          release/README.md
-          release/conf/*
         draft: false
         prerelease: false
         generate_release_notes: true
@@ -78,33 +71,39 @@ jobs:
     
     - name: 獲取檔案
       run: |
-        # 確保目錄存在
         mkdir -p temp/{conf,kcptube}
-        
-        # 複製檔案，如果存在的話
-        if [ -f version.json ]; then
-          cp version.json temp/
-        fi
-        
-        if [ -d conf ] && [ "$(ls -A conf/*.conf 2>/dev/null)" ]; then
-          cp conf/*.conf temp/conf/
-        fi
-        
-        if [ -d kcptube ] && [ "$(ls -A kcptube 2>/dev/null)" ]; then
-          cp -r kcptube/* temp/kcptube/
-        fi
+        cp version.json temp/ || echo "警告: 無法複製 version.json"
+        cp conf/*.conf temp/conf/ || echo "警告: 無法複製設定檔"
+        cp -r kcptube/* temp/kcptube/ || echo "警告: 無法複製 kcptube 檔案"
     
     - uses: actions/checkout@v3
       with:
         ref: main
         clean: true
     
-    - name: 更新檔案
+    - name: 建立目錄結構
       run: |
-        # 確保目錄存在
-        mkdir -p conf kcptube
+        # 建立基本目錄結構
+        mkdir -p conf
+        mkdir -p kcptube
         
-        # 複製檔案，如果存在的話
+        # 確保版本資訊存在
+        version="${GITHUB_REF#refs/tags/v}"
+        echo "{\"launcher_version\": \"$version\", \"kcptube_version\": \"20240602\", \"last_updated\": \"$(date +%Y-%m-%d)\"}" > version.json
+        
+        # 從 version.json 讀取 KCPTube 版本
+        kcptube_version=$(jq -r '.kcptube_version' version.json)
+        
+        # 建立 KCPTube 版本目錄
+        mkdir -p "kcptube/$kcptube_version"
+        
+        # 建立空的 .gitkeep 檔案以保持目錄結構
+        touch conf/.gitkeep
+        touch "kcptube/$kcptube_version/.gitkeep"
+    
+    - name: 複製檔案
+      run: |
+        # 如果有檔案則複製
         if [ -f temp/version.json ]; then
           cp -f temp/version.json ./
         fi
@@ -116,13 +115,6 @@ jobs:
         if [ -d temp/kcptube ] && [ "$(ls -A temp/kcptube 2>/dev/null)" ]; then
           cp -rf temp/kcptube/* kcptube/
         fi
-        
-        # 確保版本資訊一定會更新
-        version="${GITHUB_REF#refs/tags/v}"
-        echo "{\"launcher_version\": \"$version\", \"kcptube_version\": \"20240602\", \"last_updated\": \"$(date +%Y-%m-%d)\"}" > version.json
-        
-        # 確保 kcptube 目錄結構正確
-        mkdir -p kcptube/20240602
     
     - name: 提交並推送變更
       run: |
