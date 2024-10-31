@@ -76,11 +76,12 @@ jobs:
         ref: develop
         token: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: 獲取設定檔和版本資訊
+    - name: 獲取檔案
       run: |
-        mkdir -p temp/conf
-        cp version.json temp/
-        cp conf/*.conf temp/conf/
+        mkdir -p temp/{conf,kcptube}
+        cp version.json temp/ || echo "警告: 無法複製 version.json"
+        cp conf/*.conf temp/conf/ || echo "警告: 無法複製設定檔"
+        cp -r kcptube/* temp/kcptube/ || echo "警告: 無法複製 kcptube 檔案"
     
     - uses: actions/checkout@v3
       with:
@@ -89,18 +90,26 @@ jobs:
     
     - name: 更新檔案
       run: |
-        mkdir -p conf
-        cp -f temp/version.json ./
-        cp -f temp/conf/*.conf conf/
+        mkdir -p conf kcptube
+        # 複製檔案，如果失敗則顯示警告
+        cp -f temp/version.json ./ || echo "警告: 無法複製 version.json"
+        cp -f temp/conf/*.conf conf/ || echo "警告: 無法複製設定檔"
+        cp -rf temp/kcptube/* kcptube/ || echo "警告: 無法複製 kcptube 檔案"
+        
+        # 確保版本資訊一定會更新
         version="${GITHUB_REF#refs/tags/v}"
-        jq --arg ver "$version" --arg date "$(date +%Y-%m-%d)" \
-          '.launcher_version = $ver | .last_updated = $date' \
-          version.json > version.json.tmp && mv version.json.tmp version.json
+        if [ -f version.json ]; then
+          jq --arg ver "$version" --arg date "$(date +%Y-%m-%d)" \
+            '.launcher_version = $ver | .last_updated = $date' \
+            version.json > version.json.tmp && mv version.json.tmp version.json
+        else
+          echo "{\"launcher_version\": \"$version\", \"kcptube_version\": \"20240602\", \"last_updated\": \"$(date +%Y-%m-%d)\"}" > version.json
+        fi
     
     - name: 提交並推送變更
       run: |
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
-        git add version.json conf/
-        git commit -m "更新版本至 ${GITHUB_REF#refs/tags/v} 並同步設定檔"
+        git add version.json conf/ kcptube/
+        git commit -m "更新版本至 ${GITHUB_REF#refs/tags/v} 並同步檔案"
         git push
