@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'  # 當推送版本標籤時觸發
 
+permissions:
+  contents: write  # 添加全域權限設置
+
 jobs:
   build:
     runs-on: windows-latest
