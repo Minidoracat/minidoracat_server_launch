@@ -13,7 +13,7 @@ class KCPTubeManager:
     def __init__(self):
         self._ensure_directories()
         self.version_manager = VersionManager()
-        self.config_manager = ConfigManager("Minidoracat", "kcptube_launch")
+        self.config_manager = ConfigManager("Minidoracat", "minidoracat_server_launch")
         self.process = None
         self.monitor_threads = []
         logger.info(f"KCPTube 管理器初始化完成，版本: {self.version_manager.kcptube_version}")
@@ -33,7 +33,7 @@ class KCPTubeManager:
             exe_path = version_path / 'kcptube.exe'
             
             logger.info(f"正在從 GitHub 下載 KCPTube {version} 版本...")
-            url = f"https://raw.githubusercontent.com/Minidoracat/kcptube_launch/main/kcptube/{version}/kcptube.exe"
+            url = f"https://raw.githubusercontent.com/Minidoracat/minidoracat_server_launch/main/kcptube/{version}/kcptube.exe"
             
             response = requests.get(url, timeout=30)
             response.raise_for_status()

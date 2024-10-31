@@ -14,7 +14,7 @@
 
 ## 下載
 
-請前往 [Releases](https://github.com/Minidoracat/kcptube_launch/releases) 頁面下載最新版本。
+請前往 [Releases](https://github.com/Minidoracat/minidoracat_server_launch/releases) 頁面下載最新版本。
 
 ## 功能特點
 
@@ -36,7 +36,7 @@
    - 可以直接使用現有的設定檔
    - 可以根據需要修改設定檔
    - 可以新增其他節點的設定檔
-4. 執行 kcptube_launcher.exe
+4. 執行 minidoracat_server_launch.exe
 5. 從下拉選單選擇要連接的節點
 6. 點擊啟動按鈕開始使用
 
@@ -111,7 +111,7 @@ log_path=./
 
 ### 專案結構
 ```
-kcptube_launch/
+minidoracat_server_launch/
 ├── main.py              # 主程式
 ├── config_manager.py    # 設定檔管理
 ├── speed_test_manager.py # 速度測試
@@ -125,7 +125,7 @@ kcptube_launch/
 
 ## 版本資訊
 
-版本資訊請參考 [Releases](https://github.com/Minidoracat/kcptube_launch/releases) 頁面。
+版本資訊請參考 [Releases](https://github.com/Minidoracat/minidoracat_server_launch/releases) 頁面。
 
 ## 問題回報
 

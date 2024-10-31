@@ -103,7 +103,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='kcptube_launcher',
+    name='minidoracat_server_launch',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -141,9 +141,9 @@ VSVersionInfo(
         [StringStruct(u'CompanyName', u'Minidoracat'),
          StringStruct(u'FileDescription', u'Minidoracat 伺服器專用優化工具'),
          StringStruct(u'FileVersion', u'1.0.2.2'),
-         StringStruct(u'InternalName', u'kcptube_launcher'),
+         StringStruct(u'InternalName', u'minidoracat_server_launch'),
          StringStruct(u'LegalCopyright', u'Copyright (c) 2024 Minidoracat'),
-         StringStruct(u'OriginalFilename', u'kcptube_launcher.exe'),
+         StringStruct(u'OriginalFilename', u'minidoracat_server_launch.exe'),
          StringStruct(u'ProductName', u'Minidoracat 伺服器專用優化工具'),
          StringStruct(u'ProductVersion', u'1.0.2.2')])
     ]),
@@ -177,7 +177,7 @@ VSVersionInfo(
         ensure_dir('release')
         
         # 只複製執行檔
-        shutil.copy('dist/kcptube_launcher.exe', 'release/kcptube_launcher.exe')
+        shutil.copy('dist/minidoracat_server_launch.exe', 'release/minidoracat_server_launch.exe')
         
         # 清理其他建置檔案
         print("清理建置檔案...")
@@ -189,7 +189,7 @@ VSVersionInfo(
         if os.path.exists('main.spec'):
             os.unlink('main.spec')
         
-        print("建置完成！執行檔在 release/kcptube_launcher.exe")
+        print("建置完成！執行檔在 release/minidoracat_server_launch.exe")
     except Exception as e:
         print(f"建立發布套件時發生錯誤: {str(e)}")
 

@@ -152,7 +152,7 @@ class MainWindow:
             cursor="hand2"
         )
         github_label.pack(side=LEFT)
-        github_label.bind('<Button-1>', lambda e: webbrowser.open('https://github.com/Minidoracat/kcptube_launch/releases'))
+        github_label.bind('<Button-1>', lambda e: webbrowser.open('https://github.com/Minidoracat/minidoracat_server_launch/releases'))
         
         # Discord 連結
         discord_frame = ttk.Frame(links_frame)

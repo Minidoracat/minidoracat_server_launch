@@ -49,7 +49,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          release/kcptube_launcher.exe
+          release/minidoracat_server_launch.exe
         draft: false
         prerelease: false
         generate_release_notes: true

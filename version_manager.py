@@ -62,7 +62,7 @@ class VersionManager:
     def _load_remote_versions(self):
         """從 GitHub 載入遠端版本資訊"""
         try:
-            url = "https://raw.githubusercontent.com/Minidoracat/kcptube_launch/main/version.json"
+            url = "https://raw.githubusercontent.com/Minidoracat/minidoracat_server_launch/main/version.json"
             logger.info(f"正在從 {url} 下載版本資訊...")
             response = requests.get(url, timeout=30)
             response.raise_for_status()
