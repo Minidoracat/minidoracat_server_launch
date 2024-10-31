@@ -13,10 +13,6 @@ test/
 logs/
 *.log
 
-# 設定檔
-conf/
-*.conf
-
 # IDE 相關
 .vscode/
 .idea/
@@ -29,6 +25,13 @@ kcptube/*
 .DS_Store
 Thumbs.db
 
+# 建置和發布
+build/
+dist/
+release/
+*.spec
+
 # 保留檔案
 !.github/
 !README.md
+!conf/*.conf  # 允許設定檔被追蹤
