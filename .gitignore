@@ -1,0 +1,31 @@
+# 開發相關檔案
+*.py
+requirements.txt
+__pycache__/
+*.pyc
+
+# 範例和測試
+example/
+test/
+
+# 日誌
+logs/
+*.log
+
+# 設定檔
+conf/
+*.conf
+
+# IDE 相關
+.vscode/
+.idea/
+
+# 執行檔案目錄（由 Release 管理）
+kcptube/*
+!kcptube/version.txt
+
+# 系統檔案
+.DS_Store
+Thumbs.db
+
+venv/
