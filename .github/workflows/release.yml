@@ -147,7 +147,12 @@ jobs:
         git config --local user.name "github-actions[bot]"
         
         echo "添加檔案到 Git..."
-        git add -v version.json conf/ kcptube/
+        git add -f version.json
+        git add -f conf/
+        git add -f kcptube/
+        
+        echo "檢查 Git 狀態..."
+        git status
         
         echo "提交變更..."
         git commit -m "更新版本至 ${GITHUB_REF#refs/tags/v} 並同步檔案"
