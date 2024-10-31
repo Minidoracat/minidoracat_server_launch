@@ -1,6 +1,6 @@
 # Minidoracat 伺服器專用優化工具
 
-這是專門為 Minidoracat 伺服器設計的連線優化工具，提供圖形化界面來管理和優化 KCPTube 連線。
+這是專門為 Minidoracat 伺服器設計的連線優化工具，提供圖形化界面來管理和優化 KCPTube 連線。本工具基於 [KCPTube](https://github.com/cnbatch/kcptube) 開發，為其提供了現代化的管理界面和自動化功能。KCPTube 是一個高效能的網路加速工具，使用 KCP 協議來優化網路連線，特別適合需要低延遲和高穩定性的應用場景。
 
 [![Discord](https://img.shields.io/discord/YOUR_SERVER_ID?color=7289DA&logo=discord&logoColor=white)](https://discord.gg/Gur2V67)
 
@@ -105,6 +105,7 @@ log_path=./
 ## 開發資訊
 
 ### 使用的技術
+- [KCPTube](https://github.com/cnbatch/kcptube)（核心網路加速引擎）
 - Python 3.10+
 - ttkbootstrap（現代化界面框架）
 - PyInstaller（打包工具）
@@ -138,4 +139,4 @@ minidoracat_server_launch/
 
 ## 授權聲明
 
-本軟體為私有軟體，保留所有權利。專門用於 Minidoracat 伺服器的連線優化。
+本軟體為私有軟體，保留所有權利。專門用於 Minidoracat 伺服器的連線優化。本專案使用的 KCPTube 核心遵循其原始授權條款。
