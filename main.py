@@ -289,6 +289,20 @@ class MainWindow:
         )
         self.upload_speed_entry.pack(side=tk.LEFT, padx=(0, 20))
         
+        # 速度設定中間部分 - 自動套用勾選框
+        speed_middle_frame = ttk.Frame(speed_frame, style='Card.TFrame')
+        speed_middle_frame.pack(fill=tk.X, pady=(5, 5))
+        
+        self.auto_apply_var = tk.BooleanVar()
+        self.auto_apply_checkbox = ttk.Checkbutton(
+            speed_middle_frame,
+            text="自動套用速度設定到節點",
+            variable=self.auto_apply_var,
+            command=self.on_auto_apply_changed,
+            style='Custom.TCheckbutton'
+        )
+        self.auto_apply_checkbox.pack(side=tk.LEFT)
+        
         # 速度設定下半部
         speed_bottom_frame = ttk.Frame(speed_frame, style='Card.TFrame')
         speed_bottom_frame.pack(fill=tk.X)
@@ -460,12 +474,30 @@ class MainWindow:
                 logger.info(f"載入了 {len(self.node_configs)} 個節點設定")
             else:
                 logger.warning("未找到任何節點設定檔")
-    
+    def on_auto_apply_changed(self):
+        """當自動套用勾選框狀態改變時"""
+        enabled = self.auto_apply_var.get()
+        self.speedtest.set_auto_apply(enabled)
+        if enabled:
+            self.apply_speed_button['state'] = 'disabled'
+            logger.info("已啟用自動套用速度設定到節點")
+        else:
+            self.apply_speed_button['state'] = 'normal'
+            logger.info("已停用自動套用速度設定到節點")
+            
     def load_speed_settings(self):
         """載入速度設定"""
         speeds = self.speedtest.get_current_speeds()
         self.download_speed_var.set(str(int(speeds['download_speed'])))
         self.upload_speed_var.set(str(int(speeds['upload_speed'])))
+        self.auto_apply_var.set(speeds['auto_apply'])
+        
+        # 根據自動套用設定更新按鈕狀態
+        if speeds['auto_apply']:
+            self.apply_speed_button['state'] = 'disabled'
+        else:
+            self.apply_speed_button['state'] = 'normal'
+        
         self.update_speed_info()
     
     def update_speed_info(self):
@@ -473,11 +505,13 @@ class MainWindow:
         speeds = self.speedtest.get_current_speeds()
         mode = "手動設定" if speeds['manual_mode'] else "自動測試"
         last_test = speeds.get('last_test', '從未測試')
+        auto_apply = "自動套用已啟用" if speeds['auto_apply'] else "自動套用已停用"
         self.speed_info_label['text'] = (
             f"目前速度設定 ({mode}):\n"
             f"下載: {int(speeds['download_speed'])}M | "
             f"上傳: {int(speeds['upload_speed'])}M\n"
-            f"最後更新: {last_test}"
+            f"最後更新: {last_test}\n"
+            f"{auto_apply}"
         )
     
     def apply_speed_settings(self):
@@ -514,13 +548,16 @@ class MainWindow:
             self.upload_speed_var.set(str(int(result['upload_speed'])))
             self.update_speed_info()
             
-            # 更新設定檔
-            if self.speedtest.update_conf_files():
-                messagebox.showinfo('成功', '速度測試完成並已更新設定')
-                # 更新節點速度顯示
-                self.on_node_selected(None)
+            # 如果啟用了自動套用，則更新設定檔
+            if self.auto_apply_var.get():
+                if self.speedtest.update_conf_files():
+                    messagebox.showinfo('成功', '速度測試完成並已更新設定')
+                    # 更新節點速度顯示
+                    self.on_node_selected(None)
+                else:
+                    messagebox.showwarning('警告', '速度測試完成，但更新設定檔時發生錯誤')
             else:
-                messagebox.showwarning('警告', '速度測試完成，但更新設定檔時發生錯誤')
+                messagebox.showinfo('成功', '速度測試完成')
             
             self.speedtest_button['text'] = '測試網路速度'
             self.speedtest_button['state'] = 'normal'

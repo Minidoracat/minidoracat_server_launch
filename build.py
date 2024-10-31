@@ -48,13 +48,69 @@ def main():
     # 使用 PyInstaller 打包
     print("正在打包程式...")
     try:
+        # 建立 spec 檔案
+        spec_content = """
+# -*- mode: python ; coding: utf-8 -*-
+
+a = Analysis(
+    ['main.py'],
+    pathex=[],
+    binaries=[],
+    datas=[('version.json', '.')],
+    hiddenimports=[
+        'speedtest',
+        'speedtest.api',
+        'speedtest.cli',
+        'speedtest.config',
+        'speedtest.constants',
+        'speedtest.database',
+        'speedtest.errors',
+        'speedtest.results',
+        'speedtest.upload',
+        'speedtest.utils',
+        'pkg_resources.py2_warn'
+    ],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+)
+
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.datas,
+    [],
+    name='main',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+"""
+        
+        # 寫入 spec 檔案
+        with open('main.spec', 'w', encoding='utf-8') as f:
+            f.write(spec_content)
+        
+        # 使用 spec 檔案打包
         subprocess.run([
             'pyinstaller',
             '--noconfirm',
-            '--onefile',
-            '--windowed',
-            '--add-data', 'version.json;.',
-            'main.py'
+            '--clean',  # 清理快取
+            'main.spec'
         ], check=True)
     except subprocess.CalledProcessError as e:
         print(f"打包失敗: {str(e)}")

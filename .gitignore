@@ -33,3 +33,6 @@ config.json
 !conf/*.conf
 !kcptube/**/
 !kcptube/**/*
+
+# 開發記事
+dev_note.md
