@@ -80,6 +80,38 @@ class KCPTubeManager:
         Path('conf').mkdir(exist_ok=True)
         logger.debug("確保必要目錄存在: kcptube/, logs/, conf/")
     
+    def _download_kcptube(self, version):
+        """下載 KCPTube 執行檔"""
+        try:
+            version_path = Path('kcptube') / version
+            version_path.mkdir(exist_ok=True)
+            exe_path = version_path / 'kcptube.exe'
+            
+            # 從 GitHub 下載執行檔
+            url = f"https://raw.githubusercontent.com/Minidoracat/kcptube_launch/main/kcptube/{version}/kcptube.exe"
+            logger.info(f"正在下載 KCPTube {version} 版本...")
+            
+            response = requests.get(url)
+            response.raise_for_status()
+            
+            exe_path.write_bytes(response.content)
+            logger.info(f"成功下載 KCPTube {version} 版本")
+            return True
+        except Exception as e:
+            logger.error(f"下載 KCPTube {version} 版本失敗: {str(e)}")
+            return False
+    
+    def _ensure_kcptube_exists(self, version):
+        """確保指定版本的 KCPTube 存在"""
+        version_path = Path('kcptube') / version
+        exe_path = version_path / 'kcptube.exe'
+        
+        if not exe_path.exists():
+            logger.info(f"未找到 KCPTube {version} 版本，嘗試下載...")
+            return self._download_kcptube(version)
+        
+        return True
+    
     def sync_configs(self):
         """同步設定檔"""
         return self.config_manager.sync_configs()
@@ -89,14 +121,16 @@ class KCPTubeManager:
         if self.process:
             logger.warning("KCPTube 已在運行中")
             return False
-            
-        version_path = Path('kcptube') / self.version_manager.kcptube_version
+        
+        # 確保有正確版本的執行檔
+        kcptube_version = self.version_manager.kcptube_version
+        if not self._ensure_kcptube_exists(kcptube_version):
+            logger.error("無法獲取 KCPTube 執行檔")
+            return False
+        
+        version_path = Path('kcptube') / kcptube_version
         exe_path = version_path / 'kcptube.exe'
         
-        if not exe_path.exists():
-            logger.error(f"執行檔不存在: {exe_path}")
-            return False
-            
         try:
             # 建立輸出日誌檔案
             output_log = Path('logs/kcptube_output.log')
