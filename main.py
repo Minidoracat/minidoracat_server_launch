@@ -576,15 +576,8 @@ class MainWindow:
         """更新版本資訊顯示"""
         version_info = self.kcptube.version_manager.get_version_info()
         
-        # 構建版本資訊文字
-        version_text = (
-            f"本機版本 - 啟動器: {version_info['local_launcher']} | "
-            f"KCPTube: {version_info['local_kcptube']}\n"
-            f"最新版本 - 啟動器: {version_info['remote_launcher']} | "
-            f"KCPTube: {version_info['remote_kcptube']}"
-        )
-        
-        self.version_label['text'] = version_text
+        # 使用 version_manager 提供的版本文字
+        self.version_label['text'] = version_info['version_text']
         
         # 如果有更新，顯示提醒
         if version_info['has_launcher_update'] or version_info['has_kcptube_update']:

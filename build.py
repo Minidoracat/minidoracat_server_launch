@@ -60,24 +60,25 @@ def main():
         print(f"打包失敗: {str(e)}")
         return
     
-    # 建立發布目錄結構
+    # 建立發布目錄並只保留執行檔
     print("正在建立發布套件...")
     try:
         ensure_dir('release')
-        ensure_dir('release/conf')
         
-        # 複製檔案
+        # 只複製執行檔
         shutil.copy('dist/main.exe', 'release/kcptube_launcher.exe')
-        shutil.copy('version.json', 'release/version.json')
-        shutil.copy('README.md', 'release/README.md')
         
-        # 複製所有設定檔
-        conf_dir = Path('conf')
-        if conf_dir.exists():
-            for file in conf_dir.glob('*.conf'):
-                shutil.copy(file, Path('release/conf') / file.name)
+        # 清理其他建置檔案
+        print("清理建置檔案...")
+        for path in ['dist', 'build']:
+            if os.path.exists(path):
+                safe_remove(path)
         
-        print("建置完成！檔案在 release 目錄中")
+        # 移除 spec 檔案
+        if os.path.exists('main.spec'):
+            os.unlink('main.spec')
+        
+        print("建置完成！執行檔在 release/kcptube_launcher.exe")
     except Exception as e:
         print(f"建立發布套件時發生錯誤: {str(e)}")
 
