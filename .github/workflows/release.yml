@@ -68,58 +68,86 @@ jobs:
       with:
         ref: develop
         token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0  # 獲取完整歷史記錄
     
-    - name: 獲取檔案
+    - name: 顯示目錄結構（develop）
       run: |
+        echo "=== Develop 分支目錄結構 ==="
+        ls -la
+        echo "=== kcptube 目錄結構 ==="
+        ls -la kcptube/
+        echo "=== conf 目錄結構 ==="
+        ls -la conf/
+    
+    - name: 準備檔案
+      run: |
+        echo "建立暫存目錄..."
         mkdir -p temp/{conf,kcptube}
-        cp version.json temp/ || echo "警告: 無法複製 version.json"
-        cp conf/*.conf temp/conf/ || echo "警告: 無法複製設定檔"
-        cp -r kcptube/* temp/kcptube/ || echo "警告: 無法複製 kcptube 檔案"
+        
+        echo "複製版本資訊..."
+        cp -v version.json temp/ || echo "警告: 無法複製 version.json"
+        
+        echo "複製設定檔..."
+        cp -v conf/*.conf temp/conf/ || echo "警告: 無法複製設定檔"
+        
+        echo "複製 KCPTube 檔案..."
+        cp -rv kcptube/. temp/kcptube/ || echo "警告: 無法複製 kcptube 檔案"
+        
+        echo "顯示暫存目錄結構..."
+        ls -la temp/
+        ls -la temp/conf/
+        ls -la temp/kcptube/
     
     - uses: actions/checkout@v3
       with:
         ref: main
         clean: true
+        token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: 建立目錄結構
       run: |
-        # 建立基本目錄結構
-        mkdir -p conf
-        mkdir -p kcptube
+        echo "建立基本目錄結構..."
+        mkdir -p conf kcptube
         
-        # 確保版本資訊存在
+        echo "準備版本資訊..."
         version="${GITHUB_REF#refs/tags/v}"
         echo "{\"launcher_version\": \"$version\", \"kcptube_version\": \"20240602\", \"last_updated\": \"$(date +%Y-%m-%d)\"}" > version.json
         
-        # 從 version.json 讀取 KCPTube 版本
+        echo "讀取 KCPTube 版本..."
         kcptube_version=$(jq -r '.kcptube_version' version.json)
+        echo "KCPTube 版本: $kcptube_version"
         
-        # 建立 KCPTube 版本目錄
+        echo "建立 KCPTube 版本目錄..."
         mkdir -p "kcptube/$kcptube_version"
-        
-        # 建立空的 .gitkeep 檔案以保持目錄結構
-        touch conf/.gitkeep
-        touch "kcptube/$kcptube_version/.gitkeep"
     
     - name: 複製檔案
       run: |
-        # 如果有檔案則複製
-        if [ -f temp/version.json ]; then
-          cp -f temp/version.json ./
-        fi
+        echo "複製檔案到 main 分支..."
         
-        if [ -d temp/conf ] && [ "$(ls -A temp/conf/*.conf 2>/dev/null)" ]; then
-          cp -f temp/conf/*.conf conf/
-        fi
+        echo "複製版本資訊..."
+        cp -v temp/version.json ./ || echo "警告: 無法複製 version.json"
         
-        if [ -d temp/kcptube ] && [ "$(ls -A temp/kcptube 2>/dev/null)" ]; then
-          cp -rf temp/kcptube/* kcptube/
-        fi
+        echo "複製設定檔..."
+        cp -v temp/conf/*.conf conf/ || echo "警告: 無法複製設定檔"
+        
+        echo "複製 KCPTube 檔案..."
+        cp -rv temp/kcptube/. kcptube/ || echo "警告: 無法複製 kcptube 檔案"
+        
+        echo "顯示最終目錄結構..."
+        ls -la
+        ls -la conf/
+        ls -la kcptube/
     
     - name: 提交並推送變更
       run: |
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
-        git add version.json conf/ kcptube/
+        
+        echo "添加檔案到 Git..."
+        git add -v version.json conf/ kcptube/
+        
+        echo "提交變更..."
         git commit -m "更新版本至 ${GITHUB_REF#refs/tags/v} 並同步檔案"
+        
+        echo "推送變更..."
         git push
