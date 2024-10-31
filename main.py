@@ -212,6 +212,18 @@ class MainWindow:
             style='info'
         )
         self.node_connect_label.pack(side=RIGHT)
+
+        # 速度設定提示
+        speed_tip_frame = ttk.Frame(node_frame)
+        speed_tip_frame.pack(fill=X, pady=(0, 10))
+        
+        speed_tip_label = ttk.Label(
+            speed_tip_frame,
+            text="提示：您可以在「速度設定」頁面測試或設定網路頻寬。本工具使用頻寬設定來優化連線，降低延遲並提升穩定性，建議依據您的實際網路頻寬進行設定。",
+            style='info',
+            wraplength=700  # 設定文字換行寬度
+        )
+        speed_tip_label.pack(fill=X)
         
         # 控制按鈕
         control_frame = ttk.Frame(node_frame)

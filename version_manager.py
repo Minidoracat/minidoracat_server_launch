@@ -17,8 +17,8 @@ class VersionManager:
     def _load_local_versions(self):
         """載入本地版本資訊"""
         try:
-            # 如果本地檔案不存在，嘗試從打包資源建立
-            if not self.version_file.exists() and getattr(sys, 'frozen', False):
+            # 優先從打包資源讀取版本資訊
+            if getattr(sys, 'frozen', False):
                 try:
                     # 獲取執行檔所在目錄
                     if hasattr(sys, '_MEIPASS'):
@@ -32,17 +32,24 @@ class VersionManager:
                         versions = json.loads(version_path.read_text(encoding='utf-8'))
                         logger.info("從執行檔中載入版本資訊")
                         
+                        # 更新本地版本檔案
+                        if self.version_file.exists():
+                            local_versions = json.loads(self.version_file.read_text(encoding='utf-8'))
+                            # 只更新啟動器版本，保留其他設定
+                            local_versions['launcher_version'] = versions['launcher_version']
+                            versions = local_versions
+                        
                         # 將版本資訊寫入本地檔案
                         self.version_file.write_text(
                             json.dumps(versions, indent=4, ensure_ascii=False),
                             encoding='utf-8'
                         )
-                        logger.info("已將版本資訊寫入本地檔案")
+                        logger.info("已更新本地版本資訊")
                         return versions
                 except Exception as e:
                     logger.error(f"從執行檔載入版本資訊失敗: {str(e)}")
             
-            # 從本地檔案讀取
+            # 如果無法從打包資源讀取，則從本地檔案讀取
             if self.version_file.exists():
                 versions = json.loads(self.version_file.read_text(encoding='utf-8'))
                 logger.info("從本地檔案載入版本資訊")
@@ -52,7 +59,7 @@ class VersionManager:
         except Exception as e:
             logger.error(f"讀取版本資訊失敗: {str(e)}")
         
-        # 如果都無法讀取，返回 unknown
+        # 如果都無法讀取，返回預設值
         return {
             "launcher_version": "unknown",
             "kcptube_version": "unknown",
