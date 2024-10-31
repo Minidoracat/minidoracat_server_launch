@@ -90,6 +90,7 @@ jobs:
         cp -v workspace/develop/version.json workspace/temp/ || echo "警告: 無法複製 version.json"
         cp -v workspace/develop/conf/*.conf workspace/temp/conf/ || echo "警告: 無法複製設定檔"
         cp -rv workspace/develop/kcptube/. workspace/temp/kcptube/ || echo "警告: 無法複製 kcptube 檔案"
+        cp -v workspace/develop/README.md workspace/temp/ || echo "警告: 無法複製 README.md"
         
         echo "顯示暫存目錄結構..."
         ls -la workspace/temp/
@@ -128,6 +129,9 @@ jobs:
         echo "複製版本資訊..."
         cp -v ../temp/version.json ./ || echo "警告: 無法複製 version.json"
         
+        echo "複製 README.md..."
+        cp -v ../temp/README.md ./ || echo "警告: 無法複製 README.md"
+        
         echo "清空舊的設定檔..."
         rm -rf conf/*
         
@@ -150,6 +154,7 @@ jobs:
         
         echo "添加檔案到 Git..."
         git add -f version.json
+        git add -f README.md
         git add -f conf/
         git add -f kcptube/
         
