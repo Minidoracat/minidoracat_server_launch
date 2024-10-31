@@ -3,6 +3,7 @@
 requirements.txt
 __pycache__/
 *.pyc
+venv/
 
 # 範例和測試
 example/
@@ -28,4 +29,6 @@ kcptube/*
 .DS_Store
 Thumbs.db
 
-venv/
+# 保留檔案
+!.github/
+!README.md
