@@ -37,6 +37,13 @@ def safe_remove(path):
 def main():
     print("開始建置...")
     
+    # 檢查圖標檔案
+    ico_path = Path('image/app.ico').absolute()
+    if not ico_path.exists():
+        print("警告: 找不到 app.ico 檔案，將不會設定應用程式圖標")
+    else:
+        print(f"找到圖標檔案: {ico_path}")
+    
     # 清理舊的建置檔案
     paths_to_clean = ['dist', 'build', 'release']
     for path in paths_to_clean:
@@ -49,43 +56,54 @@ def main():
     print("正在打包程式...")
     try:
         # 建立 spec 檔案
-        spec_content = """
+        spec_content = f"""
 # -*- mode: python ; coding: utf-8 -*-
+
+block_cipher = None
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('version.json', '.')],
+    datas=[
+        ('version.json', '.'),
+        ('image/*.png', 'image'),
+        ('image/app.ico', 'image'),
+    ],
     hiddenimports=[
         'speedtest',
-        'speedtest.api',
-        'speedtest.cli',
-        'speedtest.config',
-        'speedtest.constants',
-        'speedtest.database',
-        'speedtest.errors',
-        'speedtest.results',
-        'speedtest.upload',
-        'speedtest.utils',
+        'PIL',
+        'PIL._imagingtk',
+        'PIL._tkinter_finder',
+        'ttkbootstrap',
+        'ttkbootstrap.themes',
+        'ttkbootstrap.style',
+        'ttkbootstrap.widgets',
+        'ttkbootstrap.window',
+        'ttkbootstrap.dialogs',
+        'ttkbootstrap.localization',
         'pkg_resources.py2_warn'
     ],
     hookspath=[],
-    hooksconfig={},
+    hooksconfig={{}},
     runtime_hooks=[],
     excludes=[],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
     noarchive=False,
 )
 
-pyz = PYZ(a.pure)
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
+    a.zipfiles,
     a.datas,
     [],
-    name='main',
+    name='kcptube_launcher',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -98,8 +116,45 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version='version.txt',
+    icon=r'{ico_path}',
 )
 """
+        
+        # 建立版本資訊檔案
+        version_content = """
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(1, 0, 2, 2),
+    prodvers=(1, 0, 2, 2),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo([
+      StringTable(
+        u'040904B0',
+        [StringStruct(u'CompanyName', u'Minidoracat'),
+         StringStruct(u'FileDescription', u'Minidoracat 伺服器專用優化工具'),
+         StringStruct(u'FileVersion', u'1.0.2.2'),
+         StringStruct(u'InternalName', u'kcptube_launcher'),
+         StringStruct(u'LegalCopyright', u'Copyright (c) 2024 Minidoracat'),
+         StringStruct(u'OriginalFilename', u'kcptube_launcher.exe'),
+         StringStruct(u'ProductName', u'Minidoracat 伺服器專用優化工具'),
+         StringStruct(u'ProductVersion', u'1.0.2.2')])
+    ]),
+    VarFileInfo([VarStruct(u'Translation', [1033, 1200])])
+  ]
+)
+"""
+        
+        # 寫入版本資訊檔案
+        with open('version.txt', 'w', encoding='utf-8') as f:
+            f.write(version_content)
         
         # 寫入 spec 檔案
         with open('main.spec', 'w', encoding='utf-8') as f:
@@ -122,11 +177,11 @@ exe = EXE(
         ensure_dir('release')
         
         # 只複製執行檔
-        shutil.copy('dist/main.exe', 'release/kcptube_launcher.exe')
+        shutil.copy('dist/kcptube_launcher.exe', 'release/kcptube_launcher.exe')
         
         # 清理其他建置檔案
         print("清理建置檔案...")
-        for path in ['dist', 'build']:
+        for path in ['dist', 'build', 'version.txt']:
             if os.path.exists(path):
                 safe_remove(path)
         

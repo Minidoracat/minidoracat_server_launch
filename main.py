@@ -2,40 +2,42 @@ import sys
 import os
 import json
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
+from tkinter import messagebox
 from datetime import datetime
 from queue import Empty
 from pathlib import Path
 import re
 import webbrowser
+from PIL import Image, ImageTk
 from logger import logger
 from version_manager import VersionManager
 from kcptube_manager import KCPTubeManager
 from speed_test_manager import SpeedTestManager
 
+def get_resource_path(relative_path):
+    """獲取資源文件的路徑，支援打包和非打包環境"""
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller 打包環境
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
 class MainWindow:
     """主視窗"""
     def __init__(self, root):
         self.root = root
-        self.root.title('Minidoracat 伺服器專用加速器')
+        self.root.title('Minidoracat 伺服器專用優化工具')
         self.root.geometry('800x700')  # 加寬視窗
         self.root.resizable(True, True)
         
-        # 設定主題色彩
-        self.colors = {
-            'bg': '#1E1E1E',           # 深色背景
-            'button': '#3C4043',       # 按鈕背景
-            'button_hover': '#4E5255', # 按鈕懸停
-            'text': '#FFFFFF',         # 文字
-            'accent': '#007AFF',       # 強調色
-            'error': '#FF3B30',        # 錯誤
-            'success': '#34C759',      # 成功
-            'warning': '#FF9500',      # 警告
-            'link': '#58A6FF'          # 連結顏色
-        }
+        # 設定應用程式圖標
+        ico_path = get_resource_path('image/app.ico')
+        if os.path.exists(ico_path):
+            self.root.iconbitmap(ico_path)
         
-        # 設定根視窗背景
-        self.root.configure(bg=self.colors['bg'])
+        # 載入圖片
+        self.load_images()
         
         logger.info("啟動器開始運行")
         
@@ -60,6 +62,28 @@ class MainWindow:
         
         logger.info("使用者介面初始化完成")
     
+    def load_images(self):
+        """載入圖片"""
+        # GitHub 圖標
+        github_path = get_resource_path('image/github.png')
+        if os.path.exists(github_path):
+            github_img = Image.open(github_path)
+            github_img = github_img.resize((16, 16), Image.Resampling.LANCZOS)
+            self.github_icon = ImageTk.PhotoImage(github_img)
+        else:
+            self.github_icon = None
+            logger.warning("找不到 GitHub 圖標")
+        
+        # Discord 圖標
+        discord_path = get_resource_path('image/discord.png')
+        if os.path.exists(discord_path):
+            discord_img = Image.open(discord_path)
+            discord_img = discord_img.resize((16, 16), Image.Resampling.LANCZOS)
+            self.discord_icon = ImageTk.PhotoImage(discord_img)
+        else:
+            self.discord_icon = None
+            logger.warning("找不到 Discord 圖標")
+            
     def on_closing(self):
         """視窗關閉事件處理"""
         try:
@@ -77,301 +101,256 @@ class MainWindow:
     
     def init_ui(self):
         """初始化使用者介面"""
-        # 設定全局樣式
-        style = ttk.Style()
-        style.theme_use('default')
-        
-        # 配置樣式
-        style.configure('Main.TFrame', background=self.colors['bg'])
-        style.configure('Card.TFrame', background=self.colors['button'])
-        style.configure(
-            'Custom.TButton',
-            background=self.colors['button'],
-            foreground=self.colors['text'],
-            font=('微軟正黑體', 10),
-            padding=5
-        )
-        style.configure(
-            'Action.TButton',
-            background=self.colors['accent'],
-            foreground=self.colors['text'],
-            font=('微軟正黑體', 10, 'bold'),
-            padding=5
-        )
-        style.configure(
-            'Custom.TLabel',
-            background=self.colors['bg'],
-            foreground=self.colors['text'],
-            font=('微軟正黑體', 10)
-        )
-        style.configure(
-            'Title.TLabel',
-            background=self.colors['bg'],
-            foreground=self.colors['text'],
-            font=('微軟正黑體', 12, 'bold')
-        )
-        style.configure(
-            'Link.TLabel',
-            background=self.colors['bg'],
-            foreground=self.colors['link'],
-            font=('微軟正黑體', 10, 'underline'),
-            cursor='hand2'
-        )
-        style.configure(
-            'Card.TLabelframe',
-            background=self.colors['button'],
-            foreground=self.colors['text']
-        )
-        style.configure(
-            'Card.TLabelframe.Label',
-            background=self.colors['button'],
-            foreground=self.colors['text'],
-            font=('微軟正黑體', 10, 'bold')
-        )
-        
         # 主框架
-        main_frame = ttk.Frame(self.root, style='Main.TFrame', padding="20")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame = ttk.Frame(self.root, padding=20)
+        main_frame.pack(fill=BOTH, expand=YES)
         
         # 頂部區域
-        top_frame = ttk.Frame(main_frame, style='Main.TFrame')
-        top_frame.pack(fill=tk.X, pady=(0, 20))
+        top_frame = ttk.Frame(main_frame)
+        top_frame.pack(fill=X, pady=(0, 20))
         
         # 版本資訊（左側）
-        version_frame = ttk.Frame(top_frame, style='Main.TFrame')
-        version_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        version_frame = ttk.Frame(top_frame)
+        version_frame.pack(side=LEFT, fill=X, expand=YES)
         
         self.version_label = ttk.Label(
             version_frame,
             text="正在載入版本資訊...",
-            style='Custom.TLabel'
+            style='info'
         )
-        self.version_label.pack(side=tk.LEFT)
+        self.version_label.pack(side=LEFT)
         
         # 更新按鈕（右側）
         self.sync_button = ttk.Button(
             top_frame,
             text='下載節點設定',
             command=self.sync_configs,
-            style='Custom.TButton',
+            style='info-outline',
             width=15
         )
-        self.sync_button.pack(side=tk.RIGHT)
+        self.sync_button.pack(side=RIGHT)
         
         # 連結區域
-        links_frame = ttk.Frame(main_frame, style='Main.TFrame')
-        links_frame.pack(fill=tk.X, pady=(0, 20))
+        links_frame = ttk.Frame(main_frame)
+        links_frame.pack(fill=X, pady=(0, 20))
         
         # GitHub 連結
+        github_frame = ttk.Frame(links_frame)
+        github_frame.pack(side=LEFT, padx=(0, 20))
+        
+        if self.github_icon:
+            github_icon_label = ttk.Label(
+                github_frame,
+                image=self.github_icon
+            )
+            github_icon_label.pack(side=LEFT, padx=(0, 5))
+        
         github_label = ttk.Label(
-            links_frame,
+            github_frame,
             text="下載最新版本",
-            style='Link.TLabel',
-            cursor='hand2'
+            style='info',
+            cursor="hand2"
         )
-        github_label.pack(side=tk.LEFT, padx=(0, 20))
+        github_label.pack(side=LEFT)
         github_label.bind('<Button-1>', lambda e: webbrowser.open('https://github.com/Minidoracat/kcptube_launch/releases'))
         
         # Discord 連結
+        discord_frame = ttk.Frame(links_frame)
+        discord_frame.pack(side=LEFT)
+        
+        if self.discord_icon:
+            discord_icon_label = ttk.Label(
+                discord_frame,
+                image=self.discord_icon
+            )
+            discord_icon_label.pack(side=LEFT, padx=(0, 5))
+        
         discord_label = ttk.Label(
-            links_frame,
+            discord_frame,
             text="加入 Discord 社群",
-            style='Link.TLabel',
-            cursor='hand2'
+            style='info',
+            cursor="hand2"
         )
-        discord_label.pack(side=tk.LEFT)
+        discord_label.pack(side=LEFT)
         discord_label.bind('<Button-1>', lambda e: webbrowser.open('https://discord.gg/Gur2V67'))
         
-        # 中間區域
-        middle_frame = ttk.Frame(main_frame, style='Main.TFrame')
-        middle_frame.pack(fill=tk.X, pady=(0, 20))
+        # 中間區域 - 使用 Notebook
+        notebook = ttk.Notebook(main_frame)
+        notebook.pack(fill=BOTH, expand=YES, pady=(0, 20))
         
-        # 節點選擇區域
-        node_frame = ttk.LabelFrame(
-            middle_frame,
-            text="節點選擇",
-            style='Card.TLabelframe',
-            padding="10"
-        )
-        node_frame.pack(fill=tk.X, pady=(0, 10))
+        # 節點頁面
+        node_frame = ttk.Frame(notebook, padding=15)
+        notebook.add(node_frame, text="節點設定")
         
-        # 節點選擇上半部
-        node_top_frame = ttk.Frame(node_frame, style='Card.TFrame')
-        node_top_frame.pack(fill=tk.X, pady=(0, 5))
+        # 節點選擇
+        node_select_frame = ttk.Frame(node_frame)
+        node_select_frame.pack(fill=X, pady=(0, 10))
         
-        # 節點下拉選單
         self.node_combo = ttk.Combobox(
-            node_top_frame,
+            node_select_frame,
             state='readonly',
             font=('微軟正黑體', 10),
             width=30
         )
-        self.node_combo.pack(side=tk.LEFT, padx=(0, 10))
+        self.node_combo.pack(side=LEFT, padx=(0, 15))
         self.node_combo.bind('<<ComboboxSelected>>', self.on_node_selected)
         
-        # 節點資訊顯示區域
-        node_info_frame = ttk.Frame(node_frame, style='Card.TFrame')
-        node_info_frame.pack(fill=tk.X, pady=(0, 5))
+        # 節點資訊
+        node_info_frame = ttk.Frame(node_frame)
+        node_info_frame.pack(fill=X, pady=(0, 10))
         
-        # 節點速度資訊
         self.node_speed_label = ttk.Label(
             node_info_frame,
             text="節點速度設定: 未選擇",
-            style='Custom.TLabel'
+            style='info'
         )
-        self.node_speed_label.pack(side=tk.LEFT)
+        self.node_speed_label.pack(side=LEFT)
         
-        # 節點連線資訊
         self.node_connect_label = ttk.Label(
             node_info_frame,
             text="連線資訊: 未選擇",
-            style='Custom.TLabel'
+            style='info'
         )
-        self.node_connect_label.pack(side=tk.RIGHT)
+        self.node_connect_label.pack(side=RIGHT)
         
-        # 節點選擇下半部
-        node_bottom_frame = ttk.Frame(node_frame, style='Card.TFrame')
-        node_bottom_frame.pack(fill=tk.X, pady=(5, 0))
+        # 控制按鈕
+        control_frame = ttk.Frame(node_frame)
+        control_frame.pack(fill=X, pady=(0, 10))
         
-        # 啟動按鈕
         self.start_button = ttk.Button(
-            node_bottom_frame,
+            control_frame,
             text='啟動加速',
             command=self.start_service,
-            style='Action.TButton',
+            style='success',
             width=15
         )
-        self.start_button.pack(side=tk.LEFT, padx=(0, 5))
+        self.start_button.pack(side=LEFT, padx=(0, 10))
         
-        # 停止按鈕
         self.stop_button = ttk.Button(
-            node_bottom_frame,
+            control_frame,
             text='停止加速',
             command=self.stop_service,
             state='disabled',
-            style='Custom.TButton',
+            style='danger-outline',
             width=15
         )
-        self.stop_button.pack(side=tk.LEFT)
+        self.stop_button.pack(side=LEFT)
         
-        # 狀態顯示
         self.status_label = ttk.Label(
-            node_bottom_frame,
+            control_frame,
             text='狀態: 未啟動',
-            style='Custom.TLabel'
+            style='info'
         )
-        self.status_label.pack(side=tk.RIGHT)
+        self.status_label.pack(side=RIGHT)
         
-        # 速度設定區域
-        speed_frame = ttk.LabelFrame(
-            middle_frame,
-            text="網路速度設定",
-            style='Card.TLabelframe',
-            padding="10"
-        )
-        speed_frame.pack(fill=tk.X)
+        # 速度設定頁面
+        speed_frame = ttk.Frame(notebook, padding=15)
+        notebook.add(speed_frame, text="速度設定")
         
-        # 速度設定上半部
-        speed_top_frame = ttk.Frame(speed_frame, style='Card.TFrame')
-        speed_top_frame.pack(fill=tk.X, pady=(0, 5))
+        # 速度輸入區域
+        speed_input_frame = ttk.Frame(speed_frame)
+        speed_input_frame.pack(fill=X, pady=(0, 10))
         
-        # 下載速度設定
         ttk.Label(
-            speed_top_frame,
+            speed_input_frame,
             text="下載速度 (M):",
-            style='Custom.TLabel'
-        ).pack(side=tk.LEFT, padx=(0, 5))
+            style='info'
+        ).pack(side=LEFT, padx=(0, 5))
         
         self.download_speed_var = tk.StringVar()
         self.download_speed_entry = ttk.Entry(
-            speed_top_frame,
+            speed_input_frame,
             textvariable=self.download_speed_var,
             width=10,
             font=('微軟正黑體', 10)
         )
-        self.download_speed_entry.pack(side=tk.LEFT, padx=(0, 20))
+        self.download_speed_entry.pack(side=LEFT, padx=(0, 20))
         
-        # 上傳速度設定
         ttk.Label(
-            speed_top_frame,
+            speed_input_frame,
             text="上傳速度 (M):",
-            style='Custom.TLabel'
-        ).pack(side=tk.LEFT, padx=(0, 5))
+            style='info'
+        ).pack(side=LEFT, padx=(0, 5))
         
         self.upload_speed_var = tk.StringVar()
         self.upload_speed_entry = ttk.Entry(
-            speed_top_frame,
+            speed_input_frame,
             textvariable=self.upload_speed_var,
             width=10,
             font=('微軟正黑體', 10)
         )
-        self.upload_speed_entry.pack(side=tk.LEFT, padx=(0, 20))
+        self.upload_speed_entry.pack(side=LEFT)
         
-        # 速度設定中間部分 - 自動套用勾選框
-        speed_middle_frame = ttk.Frame(speed_frame, style='Card.TFrame')
-        speed_middle_frame.pack(fill=tk.X, pady=(5, 5))
-        
+        # 自動套用選項
         self.auto_apply_var = tk.BooleanVar()
         self.auto_apply_checkbox = ttk.Checkbutton(
-            speed_middle_frame,
+            speed_frame,
             text="自動套用速度設定到節點",
             variable=self.auto_apply_var,
             command=self.on_auto_apply_changed,
-            style='Custom.TCheckbutton'
+            style='round-toggle'
         )
-        self.auto_apply_checkbox.pack(side=tk.LEFT)
+        self.auto_apply_checkbox.pack(fill=X, pady=10)
         
-        # 速度設定下半部
-        speed_bottom_frame = ttk.Frame(speed_frame, style='Card.TFrame')
-        speed_bottom_frame.pack(fill=tk.X)
+        # 速度控制按鈕
+        speed_control_frame = ttk.Frame(speed_frame)
+        speed_control_frame.pack(fill=X)
         
-        # 設定按鈕
         self.apply_speed_button = ttk.Button(
-            speed_bottom_frame,
+            speed_control_frame,
             text="套用設定到節點",
             command=self.apply_speed_settings,
-            style='Custom.TButton',
+            style='primary-outline',
             width=15
         )
-        self.apply_speed_button.pack(side=tk.LEFT, padx=(0, 5))
+        self.apply_speed_button.pack(side=LEFT, padx=(0, 10))
         
-        # 速度測試按鈕
         self.speedtest_button = ttk.Button(
-            speed_bottom_frame,
+            speed_control_frame,
             text="測試網路速度",
             command=self.start_speedtest,
-            style='Custom.TButton',
+            style='info-outline',
             width=15
         )
-        self.speedtest_button.pack(side=tk.LEFT)
+        self.speedtest_button.pack(side=LEFT)
         
-        # 速度資訊顯示
         self.speed_info_label = ttk.Label(
-            speed_bottom_frame,
+            speed_control_frame,
             text="目前未設定速度",
-            style='Custom.TLabel'
+            style='info'
         )
-        self.speed_info_label.pack(side=tk.RIGHT)
+        self.speed_info_label.pack(side=RIGHT)
         
-        # 日誌顯示區
-        log_frame = ttk.LabelFrame(
-            main_frame,
-            text="系統日誌",
-            style='Card.TLabelframe',
-            padding="10"
-        )
-        log_frame.pack(fill=tk.BOTH, expand=True)
+        # 日誌區域
+        log_frame = ttk.Labelframe(main_frame, text="系統日誌", padding=15)
+        log_frame.pack(fill=BOTH, expand=YES)
+        
+        # 建立日誌容器框架
+        log_container = ttk.Frame(log_frame)
+        log_container.pack(fill=BOTH, expand=YES)
         
         # 日誌文字框
-        self.log_text = scrolledtext.ScrolledText(
-            log_frame,
-            wrap=tk.WORD,
+        self.log_text = ttk.Text(
+            log_container,
+            wrap=NONE,  # 禁用自動換行
             font=('Consolas', 9),
-            background='#2D2D2D',
-            foreground='#FFFFFF',
-            insertbackground='#FFFFFF'
+            height=10
         )
-        self.log_text.pack(fill=tk.BOTH, expand=True)
+        self.log_text.pack(side=LEFT, fill=BOTH, expand=YES)
+        
+        # 垂直捲軸
+        v_scrollbar = ttk.Scrollbar(log_container, orient=VERTICAL, command=self.log_text.yview)
+        v_scrollbar.pack(side=RIGHT, fill=Y)
+        
+        # 水平捲軸
+        h_scrollbar = ttk.Scrollbar(log_frame, orient=HORIZONTAL, command=self.log_text.xview)
+        h_scrollbar.pack(fill=X)
+        
+        # 設定捲軸
+        self.log_text.configure(
+            yscrollcommand=v_scrollbar.set,
+            xscrollcommand=h_scrollbar.set
+        )
         
         # 載入節點列表
         self.load_nodes()
@@ -447,8 +426,8 @@ class MainWindow:
                 while True:
                     record = logger.get_gui_queue().get_nowait()
                     msg = self.format_log_message(record)
-                    self.log_text.insert(tk.END, msg + '\n')
-                    self.log_text.see(tk.END)  # 自動滾動到最新的日誌
+                    self.log_text.insert(END, msg + '\n')
+                    self.log_text.see(END)  # 自動滾動到最新的日誌
                     
                     # 根據日誌等級設定顏色
                     tag = f"level_{record.levelname}"
@@ -461,9 +440,9 @@ class MainWindow:
                 self.root.after(100, check_log_queue)
         
         # 設定不同日誌等級的顏色
-        self.log_text.tag_config('level_ERROR', foreground=self.colors['error'])
-        self.log_text.tag_config('level_WARNING', foreground=self.colors['warning'])
-        self.log_text.tag_config('level_INFO', foreground=self.colors['text'])
+        self.log_text.tag_config('level_ERROR', foreground='red')
+        self.log_text.tag_config('level_WARNING', foreground='orange')
+        self.log_text.tag_config('level_INFO', foreground='white')
         self.log_text.tag_config('level_DEBUG', foreground='gray')
         
         # 開始監控
@@ -492,6 +471,7 @@ class MainWindow:
                 logger.info(f"載入了 {len(self.node_configs)} 個節點設定")
             else:
                 logger.warning("未找到任何節點設定檔")
+    
     def on_auto_apply_changed(self):
         """當自動套用勾選框狀態改變時"""
         enabled = self.auto_apply_var.get()
@@ -653,7 +633,7 @@ class MainWindow:
 
 if __name__ == '__main__':
     try:
-        root = tk.Tk()
+        root = ttk.Window(themename="superhero")
         app = MainWindow(root)
         root.mainloop()
     except Exception as e:
