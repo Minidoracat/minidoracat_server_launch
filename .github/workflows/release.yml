@@ -64,13 +64,19 @@ jobs:
       contents: write
     
     steps:
+    - name: 建立工作目錄
+      run: |
+        mkdir -p workspace/temp/{conf,kcptube}
+        
     - uses: actions/checkout@v3
       with:
         ref: develop
         token: ${{ secrets.GITHUB_TOKEN }}
         fetch-depth: 0  # 獲取完整歷史記錄
+        path: workspace/develop
     
     - name: 顯示目錄結構（develop）
+      working-directory: workspace/develop
       run: |
         echo "=== Develop 分支目錄結構 ==="
         ls -la
@@ -81,30 +87,25 @@ jobs:
     
     - name: 準備檔案
       run: |
-        echo "建立暫存目錄..."
-        mkdir -p temp/{conf,kcptube}
-        
-        echo "複製版本資訊..."
-        cp -v version.json temp/ || echo "警告: 無法複製 version.json"
-        
-        echo "複製設定檔..."
-        cp -v conf/*.conf temp/conf/ || echo "警告: 無法複製設定檔"
-        
-        echo "複製 KCPTube 檔案..."
-        cp -rv kcptube/. temp/kcptube/ || echo "警告: 無法複製 kcptube 檔案"
+        echo "複製檔案到暫存目錄..."
+        cp -v workspace/develop/version.json workspace/temp/ || echo "警告: 無法複製 version.json"
+        cp -v workspace/develop/conf/*.conf workspace/temp/conf/ || echo "警告: 無法複製設定檔"
+        cp -rv workspace/develop/kcptube/. workspace/temp/kcptube/ || echo "警告: 無法複製 kcptube 檔案"
         
         echo "顯示暫存目錄結構..."
-        ls -la temp/
-        ls -la temp/conf/
-        ls -la temp/kcptube/
+        ls -la workspace/temp/
+        ls -la workspace/temp/conf/
+        ls -la workspace/temp/kcptube/
     
     - uses: actions/checkout@v3
       with:
         ref: main
         clean: true
         token: ${{ secrets.GITHUB_TOKEN }}
+        path: workspace/main
     
     - name: 建立目錄結構
+      working-directory: workspace/main
       run: |
         echo "建立基本目錄結構..."
         mkdir -p conf kcptube
@@ -121,17 +122,18 @@ jobs:
         mkdir -p "kcptube/$kcptube_version"
     
     - name: 複製檔案
+      working-directory: workspace/main
       run: |
         echo "複製檔案到 main 分支..."
         
         echo "複製版本資訊..."
-        cp -v temp/version.json ./ || echo "警告: 無法複製 version.json"
+        cp -v ../temp/version.json ./ || echo "警告: 無法複製 version.json"
         
         echo "複製設定檔..."
-        cp -v temp/conf/*.conf conf/ || echo "警告: 無法複製設定檔"
+        cp -v ../temp/conf/*.conf conf/ || echo "警告: 無法複製設定檔"
         
         echo "複製 KCPTube 檔案..."
-        cp -rv temp/kcptube/. kcptube/ || echo "警告: 無法複製 kcptube 檔案"
+        cp -rv ../temp/kcptube/. kcptube/ || echo "警告: 無法複製 kcptube 檔案"
         
         echo "顯示最終目錄結構..."
         ls -la
@@ -139,6 +141,7 @@ jobs:
         ls -la kcptube/
     
     - name: 提交並推送變更
+      working-directory: workspace/main
       run: |
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
