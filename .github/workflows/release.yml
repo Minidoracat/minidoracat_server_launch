@@ -27,7 +27,7 @@ jobs:
     
     - name: 使用 PyInstaller 建置
       run: |
-        pyinstaller --noconfirm --onefile --windowed --icon=icon.ico --add-data "kcptube/version.txt;kcptube" main.py
+        pyinstaller --noconfirm --onefile --windowed --add-data "kcptube/version.txt;kcptube" main.py
     
     - name: 建立發布套件
       run: |
@@ -53,11 +53,14 @@ jobs:
   update-main:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
     - uses: actions/checkout@v3
       with:
         ref: main
+        token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: 更新版本資訊
       run: |
@@ -66,8 +69,8 @@ jobs:
     
     - name: 提交並推送變更
       run: |
-        git config --local user.email "minidora0702@gmail.com"
-        git config --local user.name "Minidoracat"
+        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
         git add kcptube/version.txt
         git commit -m "更新版本至 ${GITHUB_REF#refs/tags/v}"
         git push
