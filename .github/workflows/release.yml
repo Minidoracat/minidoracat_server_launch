@@ -78,10 +78,21 @@ jobs:
     
     - name: 獲取檔案
       run: |
+        # 確保目錄存在
         mkdir -p temp/{conf,kcptube}
-        cp version.json temp/ || echo "警告: 無法複製 version.json"
-        cp conf/*.conf temp/conf/ || echo "警告: 無法複製設定檔"
-        cp -r kcptube/* temp/kcptube/ || echo "警告: 無法複製 kcptube 檔案"
+        
+        # 複製檔案，如果存在的話
+        if [ -f version.json ]; then
+          cp version.json temp/
+        fi
+        
+        if [ -d conf ] && [ "$(ls -A conf/*.conf 2>/dev/null)" ]; then
+          cp conf/*.conf temp/conf/
+        fi
+        
+        if [ -d kcptube ] && [ "$(ls -A kcptube 2>/dev/null)" ]; then
+          cp -r kcptube/* temp/kcptube/
+        fi
     
     - uses: actions/checkout@v3
       with:
@@ -90,21 +101,28 @@ jobs:
     
     - name: 更新檔案
       run: |
+        # 確保目錄存在
         mkdir -p conf kcptube
-        # 複製檔案，如果失敗則顯示警告
-        cp -f temp/version.json ./ || echo "警告: 無法複製 version.json"
-        cp -f temp/conf/*.conf conf/ || echo "警告: 無法複製設定檔"
-        cp -rf temp/kcptube/* kcptube/ || echo "警告: 無法複製 kcptube 檔案"
+        
+        # 複製檔案，如果存在的話
+        if [ -f temp/version.json ]; then
+          cp -f temp/version.json ./
+        fi
+        
+        if [ -d temp/conf ] && [ "$(ls -A temp/conf/*.conf 2>/dev/null)" ]; then
+          cp -f temp/conf/*.conf conf/
+        fi
+        
+        if [ -d temp/kcptube ] && [ "$(ls -A temp/kcptube 2>/dev/null)" ]; then
+          cp -rf temp/kcptube/* kcptube/
+        fi
         
         # 確保版本資訊一定會更新
         version="${GITHUB_REF#refs/tags/v}"
-        if [ -f version.json ]; then
-          jq --arg ver "$version" --arg date "$(date +%Y-%m-%d)" \
-            '.launcher_version = $ver | .last_updated = $date' \
-            version.json > version.json.tmp && mv version.json.tmp version.json
-        else
-          echo "{\"launcher_version\": \"$version\", \"kcptube_version\": \"20240602\", \"last_updated\": \"$(date +%Y-%m-%d)\"}" > version.json
-        fi
+        echo "{\"launcher_version\": \"$version\", \"kcptube_version\": \"20240602\", \"last_updated\": \"$(date +%Y-%m-%d)\"}" > version.json
+        
+        # 確保 kcptube 目錄結構正確
+        mkdir -p kcptube/20240602
     
     - name: 提交並推送變更
       run: |
