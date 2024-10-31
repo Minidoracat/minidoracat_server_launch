@@ -11,6 +11,8 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      PYTHONIOENCODING: utf-8  # 設定 Python IO 編碼
     
     steps:
     - uses: actions/checkout@v4
@@ -37,9 +39,10 @@ jobs:
         $json | ConvertTo-Json | Set-Content version.json
     
     - name: 使用 PyInstaller 建置
+      shell: cmd
       run: |
-        # 使用 build.py 進行打包
-        python build.py
+        chcp 65001
+        python -X utf8 build.py
     
     - name: 建立發布版本
       id: create_release
