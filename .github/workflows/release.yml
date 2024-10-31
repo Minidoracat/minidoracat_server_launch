@@ -110,13 +110,13 @@ jobs:
         echo "建立基本目錄結構..."
         mkdir -p conf kcptube
         
-        echo "準備版本資訊..."
+        echo "讀取 develop 分支的版本資訊..."
         version="${GITHUB_REF#refs/tags/v}"
-        echo "{\"launcher_version\": \"$version\", \"kcptube_version\": \"20240602\", \"last_updated\": \"$(date +%Y-%m-%d)\"}" > version.json
+        kcptube_version=$(jq -r '.kcptube_version' ../temp/version.json)
+        last_updated=$(date +%Y-%m-%d)
         
-        echo "讀取 KCPTube 版本..."
-        kcptube_version=$(jq -r '.kcptube_version' version.json)
-        echo "KCPTube 版本: $kcptube_version"
+        echo "更新版本資訊..."
+        echo "{\"launcher_version\": \"$version\", \"kcptube_version\": \"$kcptube_version\", \"last_updated\": \"$last_updated\"}" > version.json
         
         echo "建立 KCPTube 版本目錄..."
         mkdir -p "kcptube/$kcptube_version"
@@ -125,9 +125,6 @@ jobs:
       working-directory: workspace/main
       run: |
         echo "複製檔案到 main 分支..."
-        
-        echo "複製版本資訊..."
-        cp -v ../temp/version.json ./ || echo "警告: 無法複製 version.json"
         
         echo "複製 README.md..."
         cp -v ../temp/README.md ./ || echo "警告: 無法複製 README.md"
