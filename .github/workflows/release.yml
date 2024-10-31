@@ -129,7 +129,10 @@ jobs:
         echo "複製版本資訊..."
         cp -v ../temp/version.json ./ || echo "警告: 無法複製 version.json"
         
-        echo "複製設定檔..."
+        echo "清空舊的設定檔..."
+        rm -rf conf/*
+        
+        echo "複製新的設定檔..."
         cp -v ../temp/conf/*.conf conf/ || echo "警告: 無法複製設定檔"
         
         echo "複製 KCPTube 檔案..."

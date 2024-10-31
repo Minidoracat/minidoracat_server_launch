@@ -1,10 +1,13 @@
 import sys
+import os
+import json
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 from datetime import datetime
 from queue import Empty
 from pathlib import Path
 import re
+import webbrowser
 from logger import logger
 from version_manager import VersionManager
 from kcptube_manager import KCPTubeManager
@@ -14,7 +17,7 @@ class MainWindow:
     """主視窗"""
     def __init__(self, root):
         self.root = root
-        self.root.title('Minidoracat 伺服器連線加速器')
+        self.root.title('KCPTube 遊戲加速器')
         self.root.geometry('800x700')  # 加寬視窗
         self.root.resizable(True, True)
         
@@ -27,7 +30,8 @@ class MainWindow:
             'accent': '#007AFF',       # 強調色
             'error': '#FF3B30',        # 錯誤
             'success': '#34C759',      # 成功
-            'warning': '#FF9500'       # 警告
+            'warning': '#FF9500',      # 警告
+            'link': '#58A6FF'          # 連結顏色
         }
         
         # 設定根視窗背景
@@ -89,6 +93,13 @@ class MainWindow:
             font=('微軟正黑體', 12, 'bold')
         )
         style.configure(
+            'Link.TLabel',
+            background=self.colors['bg'],
+            foreground=self.colors['link'],
+            font=('微軟正黑體', 10, 'underline'),
+            cursor='hand2'
+        )
+        style.configure(
             'Card.TLabelframe',
             background=self.colors['button'],
             foreground=self.colors['text']
@@ -129,6 +140,30 @@ class MainWindow:
         )
         self.sync_button.pack(side=tk.RIGHT)
         
+        # 連結區域
+        links_frame = ttk.Frame(main_frame, style='Main.TFrame')
+        links_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        # GitHub 連結
+        github_label = ttk.Label(
+            links_frame,
+            text="下載最新版本",
+            style='Link.TLabel',
+            cursor='hand2'
+        )
+        github_label.pack(side=tk.LEFT, padx=(0, 20))
+        github_label.bind('<Button-1>', lambda e: webbrowser.open('https://github.com/Minidoracat/kcptube_launch/releases'))
+        
+        # Discord 連結
+        discord_label = ttk.Label(
+            links_frame,
+            text="加入 Discord 社群",
+            style='Link.TLabel',
+            cursor='hand2'
+        )
+        discord_label.pack(side=tk.LEFT)
+        discord_label.bind('<Button-1>', lambda e: webbrowser.open('https://discord.gg/Gur2V67'))
+        
         # 中間區域
         middle_frame = ttk.Frame(main_frame, style='Main.TFrame')
         middle_frame.pack(fill=tk.X, pady=(0, 20))
@@ -156,17 +191,29 @@ class MainWindow:
         self.node_combo.pack(side=tk.LEFT, padx=(0, 10))
         self.node_combo.bind('<<ComboboxSelected>>', self.on_node_selected)
         
+        # 節點資訊顯示區域
+        node_info_frame = ttk.Frame(node_frame, style='Card.TFrame')
+        node_info_frame.pack(fill=tk.X, pady=(0, 5))
+        
         # 節點速度資訊
         self.node_speed_label = ttk.Label(
-            node_top_frame,
+            node_info_frame,
             text="節點速度設定: 未選擇",
             style='Custom.TLabel'
         )
         self.node_speed_label.pack(side=tk.LEFT)
         
+        # 節點連線資訊
+        self.node_connect_label = ttk.Label(
+            node_info_frame,
+            text="連線資訊: 未選擇",
+            style='Custom.TLabel'
+        )
+        self.node_connect_label.pack(side=tk.RIGHT)
+        
         # 節點選擇下半部
         node_bottom_frame = ttk.Frame(node_frame, style='Card.TFrame')
-        node_bottom_frame.pack(fill=tk.X)
+        node_bottom_frame.pack(fill=tk.X, pady=(5, 0))
         
         # 啟動按鈕
         self.start_button = ttk.Button(
@@ -314,14 +361,52 @@ class MainWindow:
             logger.error(f"讀取節點速度設定失敗: {str(e)}")
             return 0, 0
     
+    def get_node_info(self, config_path):
+        """讀取節點的設定資訊"""
+        try:
+            content = Path(config_path).read_text(encoding='utf-8')
+            
+            # 使用正則表達式找到設定
+            inbound_match = re.search(r'inbound_bandwidth=(\d+)M', content)
+            outbound_match = re.search(r'outbound_bandwidth=(\d+)M', content)
+            port_match = re.search(r'listen_port=(\d+)', content)
+            
+            inbound = int(inbound_match.group(1)) if inbound_match else 0
+            outbound = int(outbound_match.group(1)) if outbound_match else 0
+            port = port_match.group(1) if port_match else "未知"
+            
+            return {
+                'inbound': inbound,
+                'outbound': outbound,
+                'port': port
+            }
+        except Exception as e:
+            logger.error(f"讀取節點設定失敗: {str(e)}")
+            return {
+                'inbound': 0,
+                'outbound': 0,
+                'port': "未知"
+            }
+    
     def on_node_selected(self, event):
         """當選擇節點時更新顯示"""
         selected = self.node_combo.get()
         if selected:
             config_path = self.node_configs.get(selected)
-            download, upload = self.get_node_speeds(config_path)
-            self.node_speed_label['text'] = f"節點速度設定: 下載 {download}M | 上傳 {upload}M"
-    
+            info = self.get_node_info(config_path)
+            
+            # 更新節點速度資訊
+            self.node_speed_label['text'] = (
+                f"節點速度設定: 下載 {info['inbound']}M | "
+                f"上傳 {info['outbound']}M"
+            )
+            
+            # 更新節點連線資訊
+            self.node_connect_label['text'] = (
+                f"連線資訊 - IP地址: 127.0.0.1 | "
+                f"端口: {info['port']}"
+            )
+
     def setup_log_monitor(self):
         """設置日誌監控"""
         def check_log_queue():
