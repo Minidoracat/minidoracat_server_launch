@@ -24,8 +24,7 @@ class ConfigManager:
             response.raise_for_status()
             
             config_path = self.conf_dir / filename
-            with open(config_path, "wb") as f:
-                f.write(response.content)
+            config_path.write_bytes(response.content)
             
             logging.info(f"成功下載設定檔：{filename}")
             return True
