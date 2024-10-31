@@ -10,9 +10,6 @@ logs/
 .vscode/
 .idea/
 
-# 執行檔案目錄（由 Release 管理）
-kcptube/*
-
 # 系統檔案
 .DS_Store
 Thumbs.db
@@ -31,3 +28,5 @@ release/
 # 保留檔案
 !version.json
 !conf/*.conf
+!kcptube/**/
+!kcptube/**/*
