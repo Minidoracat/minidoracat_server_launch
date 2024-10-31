@@ -13,12 +13,12 @@ jobs:
     runs-on: windows-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4  # 更新到 v4
       with:
         ref: develop  # 從 develop 分支建置
     
     - name: 設定 Python 環境
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5  # 更新到 v5
       with:
         python-version: '3.10'
     
@@ -47,7 +47,7 @@ jobs:
     
     - name: 建立發布版本
       id: create_release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2  # 更新到 v2
       with:
         files: |
           release/kcptube_launcher.exe
@@ -68,7 +68,7 @@ jobs:
       run: |
         mkdir -p workspace/temp/{conf,kcptube}
         
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4  # 更新到 v4
       with:
         ref: develop
         token: ${{ secrets.GITHUB_TOKEN }}
@@ -97,7 +97,7 @@ jobs:
         ls -la workspace/temp/conf/
         ls -la workspace/temp/kcptube/
     
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4  # 更新到 v4
       with:
         ref: main
         clean: true
