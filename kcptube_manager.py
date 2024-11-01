@@ -61,9 +61,9 @@ class KCPTubeManager:
         
         return True
     
-    def sync_configs(self):
+    def sync_configs(self, force=False):
         """同步設定檔"""
-        return self.config_manager.sync_configs()
+        return self.config_manager.sync_configs(force)
     
     def start_kcptube(self, config_path):
         """啟動 KCPTube"""

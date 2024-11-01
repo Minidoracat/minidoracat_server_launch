@@ -18,6 +18,33 @@ class ConfigManager:
         self.conf_dir.mkdir(exist_ok=True)
         logger.debug("確保設定檔目錄存在: conf/")
     
+    def is_first_launch(self):
+        """檢查是否是首次啟動"""
+        return not any(self.conf_dir.glob("*.conf"))
+    
+    def remove_legacy_configs(self):
+        """刪除指定的舊設定檔"""
+        legacy_configs = [
+            "PZ_Server_2.conf",
+            "PZ#1服.conf",
+            "PZ#3服.conf"
+        ]
+        
+        removed_count = 0
+        for config in legacy_configs:
+            config_path = self.conf_dir / config
+            if config_path.exists():
+                try:
+                    config_path.unlink()
+                    logger.info(f"已刪除舊的設定檔: {config}")
+                    removed_count += 1
+                except Exception as e:
+                    logger.error(f"刪除設定檔失敗 {config}: {str(e)}")
+        
+        if removed_count > 0:
+            logger.info(f"共刪除 {removed_count} 個舊設定檔")
+        return removed_count
+    
     def download_config(self, filename):
         """下載設定檔"""
         # URL 編碼檔案名稱，但保留斜線
@@ -77,9 +104,18 @@ class ConfigManager:
             logger.error(f"處理遠端設定檔列表時發生錯誤: {str(e)}")
             return []
     
-    def sync_configs(self):
-        """同步設定檔"""
+    def sync_configs(self, force=False):
+        """同步設定檔
+        
+        Args:
+            force (bool): 是否強制同步，即使不是首次啟動
+        """
         try:
+            # 如果不是首次啟動且不是強制同步，則跳過
+            if not force and not self.is_first_launch():
+                logger.info("非首次啟動，跳過自動同步設定檔")
+                return []
+            
             # 獲取遠端設定檔列表
             remote_configs = self.list_remote_configs()
             if not remote_configs:

@@ -57,17 +57,28 @@ class MainWindow:
         self.root.after(1000, self.initial_sync)
         
         logger.info("使用者介面初始化完成")
-        
+    
     def initial_sync(self):
         """初始同步設定檔"""
         try:
             logger.info("正在執行初始同步...")
-            self.kcptube.sync_configs()
+            self.kcptube.sync_configs(force=False)  # 只在首次啟動時同步
             self.node_frame.load_nodes()  # 重新載入節點列表
             logger.info("初始同步完成")
         except Exception as e:
             logger.error(f"初始同步失敗: {str(e)}")
             messagebox.showerror('錯誤', '初始同步失敗，請檢查網路連接')
+    
+    def sync_configs(self):
+        """手動同步設定檔"""
+        logger.info("正在同步設定檔...")
+        try:
+            self.kcptube.sync_configs(force=True)  # 強制同步
+            self.node_frame.load_nodes()  # 重新載入節點列表
+            logger.info("設定檔同步完成")
+        except Exception as e:
+            logger.error(f"同步設定檔失敗: {str(e)}")
+            messagebox.showerror('錯誤', '同步設定檔失敗，請檢查網路連接')
     
     def load_images(self):
         """載入圖片"""
@@ -249,17 +260,6 @@ class MainWindow:
     def format_log_message(self, record):
         """格式化日誌訊息"""
         return f"{record.asctime} [{record.levelname}] {record.message}"
-    
-    def sync_configs(self):
-        """同步設定檔"""
-        logger.info("正在同步設定檔...")
-        try:
-            self.kcptube.sync_configs()
-            self.node_frame.load_nodes()  # 重新載入節點列表
-            logger.info("設定檔同步完成")
-        except Exception as e:
-            logger.error(f"同步設定檔失敗: {str(e)}")
-            messagebox.showerror('錯誤', '同步設定檔失敗，請檢查網路連接')
     
     def update_version_info(self):
         """更新版本資訊顯示"""
