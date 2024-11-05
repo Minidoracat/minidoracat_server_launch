@@ -24,6 +24,7 @@ build/
 dist/
 release/
 *.spec
+version.txt
 
 # 設定檔
 config.json

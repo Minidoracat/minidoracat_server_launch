@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 import subprocess
 import time
@@ -34,6 +35,21 @@ def safe_remove(path):
             return False
     return False
 
+def get_version_info():
+    """從 version.json 讀取版本資訊"""
+    try:
+        with open('version.json', 'r', encoding='utf-8') as f:
+            version_info = json.load(f)
+            version = version_info['launcher_version']
+            # 將版本號轉換為元組，例如 "1.3.2" -> (1, 3, 2, 0)
+            version_parts = [int(x) for x in version.split('.')]
+            while len(version_parts) < 4:
+                version_parts.append(0)
+            return tuple(version_parts), version
+    except Exception as e:
+        print(f"讀取版本資訊失敗: {str(e)}")
+        return (1, 0, 0, 0), "1.0.0.0"
+
 def main():
     print("開始建置...")
     
@@ -55,6 +71,10 @@ def main():
     # 使用 PyInstaller 打包
     print("正在打包程式...")
     try:
+        # 獲取版本資訊
+        version_tuple, version_str = get_version_info()
+        print(f"使用版本號: {version_str}")
+        
         # 建立 spec 檔案
         spec_content = f"""
 # -*- mode: python ; coding: utf-8 -*-
@@ -124,11 +144,11 @@ exe = EXE(
 """
         
         # 建立版本資訊檔案
-        version_content = """
+        version_content = f"""
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 0, 2, 2),
-    prodvers=(1, 0, 2, 2),
+    filevers={version_tuple},
+    prodvers={version_tuple},
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -142,12 +162,12 @@ VSVersionInfo(
         u'040904B0',
         [StringStruct(u'CompanyName', u'Minidoracat'),
          StringStruct(u'FileDescription', u'Minidoracat 伺服器專用優化工具'),
-         StringStruct(u'FileVersion', u'1.0.2.2'),
+         StringStruct(u'FileVersion', u'{version_str}'),
          StringStruct(u'InternalName', u'minidoracat_server_launch'),
          StringStruct(u'LegalCopyright', u'Copyright (c) 2024 Minidoracat'),
          StringStruct(u'OriginalFilename', u'minidoracat_server_launch.exe'),
          StringStruct(u'ProductName', u'Minidoracat 伺服器專用優化工具'),
-         StringStruct(u'ProductVersion', u'1.0.2.2')])
+         StringStruct(u'ProductVersion', u'{version_str}')])
     ]),
     VarFileInfo([VarStruct(u'Translation', [1033, 1200])])
   ]
