@@ -52,11 +52,9 @@ class SpeedTestManager:
             return True
         except ImportError as e:
             logger.error(f"無法載入 speedtest 模組: {str(e)}")
-            logger.error(f"錯誤堆疊: {traceback.format_exc()}")
             return False
         except Exception as e:
             logger.error(f"Speedtest 初始化失敗: {str(e)}")
-            logger.error(f"錯誤堆疊: {traceback.format_exc()}")
             return False
     
     def _get_best_server(self, max_retries=3):
@@ -73,7 +71,15 @@ class SpeedTestManager:
                 logger.info(f"找到 {server_count} 個伺服器")
                 
                 if server_count == 0:
-                    raise Exception("找不到可用的伺服器")
+                    logger.warning("未找到可用的伺服器，將在稍後重試")
+                    if attempt < max_retries - 1:
+                        wait_time = (attempt + 1) * 2
+                        logger.info(f"等待 {wait_time} 秒後重試...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error("已達到最大重試次數，仍未找到可用的伺服器")
+                        return None
                 
                 # 選擇最佳伺服器
                 logger.info("正在選擇最佳伺服器...")
@@ -81,8 +87,7 @@ class SpeedTestManager:
                 logger.info(f"找到最佳伺服器: {best_server['host']} ({best_server['country']})")
                 return best_server
             except Exception as e:
-                logger.error(f"尋找最佳伺服器失敗 (嘗試 {attempt + 1}/{max_retries}): {str(e)}")
-                logger.error(f"錯誤堆疊: {traceback.format_exc()}")
+                logger.warning(f"尋找最佳伺服器時發生錯誤 (嘗試 {attempt + 1}/{max_retries}): {str(e)}")
                 
                 if attempt < max_retries - 1:
                     wait_time = (attempt + 1) * 2
@@ -103,7 +108,6 @@ class SpeedTestManager:
             return download_speed
         except Exception as e:
             logger.error(f"測試下載速度失敗: {str(e)}")
-            logger.error(f"錯誤堆疊: {traceback.format_exc()}")
             return 0
     
     def _test_upload(self):
@@ -115,7 +119,6 @@ class SpeedTestManager:
             return upload_speed
         except Exception as e:
             logger.error(f"測試上傳速度失敗: {str(e)}")
-            logger.error(f"錯誤堆疊: {traceback.format_exc()}")
             return 0
     
     def start_test(self, callback):
@@ -139,12 +142,14 @@ class SpeedTestManager:
             try:
                 # 初始化
                 if not self._initialize_speedtest():
-                    raise Exception("Speedtest 初始化失敗")
+                    logger.error("Speedtest 初始化失敗")
+                    return
                 
                 # 獲取最佳伺服器
                 server = self._get_best_server()
                 if not server:
-                    raise Exception("無法找到合適的測試伺服器")
+                    logger.error("無法找到合適的測試伺服器")
+                    return
                 
                 # 測試下載速度
                 result['download_speed'] = self._test_download()
@@ -171,7 +176,6 @@ class SpeedTestManager:
                 logger.info("速度測試完成")
             except Exception as e:
                 logger.error(f"速度測試過程中發生錯誤: {str(e)}")
-                logger.error(f"錯誤堆疊: {traceback.format_exc()}")
             finally:
                 # 清理資源
                 self._speedtest = None
