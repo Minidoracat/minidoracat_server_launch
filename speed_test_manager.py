@@ -1,106 +1,19 @@
 import threading
-import json
 from datetime import datetime
-from pathlib import Path
-from logger import logger
 import traceback
 import sys
 import os
 import time
+from logger import logger
 
 class SpeedTestManager:
     """速度測試管理類"""
-    def __init__(self):
+    def __init__(self, config_manager):
         self._speedtest = None
         self._running = False
         self._current_test = None
-        self.config_file = Path('config.json')
-        self._load_config()
+        self.config_manager = config_manager
         logger.info("速度測試管理器初始化完成")
-    
-    def _load_config(self):
-        """載入設定檔"""
-        try:
-            if self.config_file.exists():
-                self.config = json.loads(self.config_file.read_text(encoding='utf-8'))
-                # 確保 speed_test 分類存在
-                if 'speed_test' not in self.config:
-                    self.config['speed_test'] = {
-                        'download_speed': 0,
-                        'upload_speed': 0,
-                        'last_test': None,
-                        'manual_mode': False,
-                        'auto_apply': False
-                    }
-                    self._save_config()
-                logger.info("成功載入速度設定")
-            else:
-                self.config = {
-                    'speed_test': {
-                        'download_speed': 0,  # Mbps
-                        'upload_speed': 0,    # Mbps
-                        'last_test': None,
-                        'manual_mode': False,  # 是否使用手動設定的速度
-                        'auto_apply': False    # 是否自動套用到節點設定
-                    }
-                }
-                self._save_config()
-        except Exception as e:
-            logger.error(f"載入速度設定失敗: {str(e)}")
-            self.config = {
-                'speed_test': {
-                    'download_speed': 0,
-                    'upload_speed': 0,
-                    'last_test': None,
-                    'manual_mode': False,
-                    'auto_apply': False
-                }
-            }
-    
-    def _save_config(self):
-        """儲存設定檔"""
-        try:
-            # 確保速度值為整數
-            self.config['speed_test']['download_speed'] = int(self.config['speed_test']['download_speed'])
-            self.config['speed_test']['upload_speed'] = int(self.config['speed_test']['upload_speed'])
-            
-            self.config_file.write_text(
-                json.dumps(self.config, indent=4, ensure_ascii=False),
-                encoding='utf-8'
-            )
-            logger.info("成功儲存速度設定")
-        except Exception as e:
-            logger.error(f"儲存速度設定失敗: {str(e)}")
-    
-    def set_manual_speeds(self, download_speed: float, upload_speed: float):
-        """手動設定速度"""
-        self.config['speed_test']['download_speed'] = int(download_speed)
-        self.config['speed_test']['upload_speed'] = int(upload_speed)
-        self.config['speed_test']['manual_mode'] = True
-        self.config['speed_test']['last_test'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self._save_config()
-        logger.info(f"手動設定速度 - 下載: {int(download_speed)}M, 上傳: {int(upload_speed)}M")
-        
-        # 如果啟用了自動套用，則更新節點設定
-        if self.config['speed_test'].get('auto_apply', False):
-            self.update_conf_files()
-    
-    def get_current_speeds(self):
-        """獲取當前速度設定"""
-        speed_test = self.config.get('speed_test', {})
-        return {
-            'download_speed': speed_test.get('download_speed', 0),
-            'upload_speed': speed_test.get('upload_speed', 0),
-            'manual_mode': speed_test.get('manual_mode', False),
-            'last_test': speed_test.get('last_test', None),
-            'auto_apply': speed_test.get('auto_apply', False)
-        }
-    
-    def set_auto_apply(self, enabled: bool):
-        """設定是否自動套用到節點設定"""
-        self.config['speed_test']['auto_apply'] = enabled
-        self._save_config()
-        logger.info(f"{'啟用' if enabled else '停用'}自動套用速度設定到節點")
     
     def _initialize_speedtest(self):
         """初始化 speedtest"""
@@ -239,16 +152,21 @@ class SpeedTestManager:
                 # 測試上傳速度
                 result['upload_speed'] = self._test_upload()
                 
-                # 儲存結果到 config.json
-                self.config['speed_test']['download_speed'] = int(result['download_speed'])
-                self.config['speed_test']['upload_speed'] = int(result['upload_speed'])
-                self.config['speed_test']['manual_mode'] = False
-                self.config['speed_test']['last_test'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                self._save_config()
+                # 更新設定
+                settings = {
+                    'download_speed': int(result['download_speed']),
+                    'upload_speed': int(result['upload_speed']),
+                    'manual_mode': False,
+                    'last_test': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                self.config_manager.set_speed_settings(settings)
                 
                 # 如果啟用了自動套用，則更新節點設定
-                if self.config['speed_test'].get('auto_apply', False):
-                    self.update_conf_files()
+                if self.config_manager.is_auto_apply_enabled():
+                    self.config_manager.update_node_bandwidth(
+                        settings['download_speed'],
+                        settings['upload_speed']
+                    )
                 
                 logger.info("速度測試完成")
             except Exception as e:
@@ -269,41 +187,28 @@ class SpeedTestManager:
         """檢查是否正在進行測試"""
         return self._running
     
-    def update_conf_files(self):
-        """更新所有設定檔中的頻寬設定"""
-        try:
-            conf_dir = Path('conf')
-            if not conf_dir.exists():
-                logger.error("找不到設定檔目錄")
-                return False
-            
-            # 獲取當前速度設定
-            speeds = self.get_current_speeds()
-            download = int(speeds['download_speed'])
-            upload = int(speeds['upload_speed'])
-            
-            # 遍歷所有 .conf 檔案
-            for conf_file in conf_dir.glob('*.conf'):
-                try:
-                    # 讀取原始內容
-                    content = conf_file.read_text(encoding='utf-8').splitlines()
-                    
-                    # 更新內容
-                    new_content = []
-                    for line in content:
-                        if line.startswith('inbound_bandwidth='):
-                            line = f'inbound_bandwidth={download}M'
-                        elif line.startswith('outbound_bandwidth='):
-                            line = f'outbound_bandwidth={upload}M'
-                        new_content.append(line)
-                    
-                    # 寫回檔案
-                    conf_file.write_text('\n'.join(new_content) + '\n', encoding='utf-8')
-                    logger.info(f"已更新設定檔: {conf_file.name}")
-                except Exception as e:
-                    logger.error(f"更新設定檔 {conf_file.name} 失敗: {str(e)}")
-            
-            return True
-        except Exception as e:
-            logger.error(f"更新設定檔時發生錯誤: {str(e)}")
-            return False
+    def set_manual_speeds(self, download_speed: float, upload_speed: float):
+        """手動設定速度"""
+        settings = {
+            'download_speed': int(download_speed),
+            'upload_speed': int(upload_speed),
+            'manual_mode': True,
+            'last_test': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        self.config_manager.set_speed_settings(settings)
+        logger.info(f"手動設定速度 - 下載: {int(download_speed)}M, 上傳: {int(upload_speed)}M")
+        
+        # 如果啟用了自動套用，則更新節點設定
+        if self.config_manager.is_auto_apply_enabled():
+            self.config_manager.update_node_bandwidth(
+                settings['download_speed'],
+                settings['upload_speed']
+            )
+    
+    def get_current_speeds(self):
+        """獲取當前速度設定"""
+        return self.config_manager.get_speed_settings()
+    
+    def set_auto_apply(self, enabled: bool):
+        """設定是否自動套用到節點設定"""
+        self.config_manager.set_auto_apply(enabled)

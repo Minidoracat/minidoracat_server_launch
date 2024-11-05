@@ -9,7 +9,7 @@ class PZMemoryFrame(BaseFrame):
     """Project Zomboid 記憶體設定頁面"""
     def __init__(self, master, pz_manager, **kwargs):
         self.pz = pz_manager
-        super().__init__(master, padding=15, **kwargs)
+        super().__init__(master, padding=20, **kwargs)  # 增加內部邊距
         
         # 檢查是否使用預設值
         current_memory = self.pz.get_current_memory_setting()
@@ -18,91 +18,98 @@ class PZMemoryFrame(BaseFrame):
     
     def init_ui(self):
         """初始化記憶體設定頁面"""
-        # 系統資訊
+        # 系統資訊區域
         system_frame = ttk.Frame(self)
-        system_frame.pack(fill=X, pady=(0, 10))
+        system_frame.pack(fill=X, pady=(0, 20))  # 增加與下方元件的間距
         
         self.system_memory_label = ttk.Label(
             system_frame,
             text=f"系統記憶體: {self.pz.get_system_memory()}GB",
-            style='info'
+            style='Important.TLabel'  # 使用重要資訊樣式
         )
         self.system_memory_label.pack(side=LEFT)
         
-        # 當前設定
+        # 當前設定區域
         current_frame = ttk.Frame(self)
-        current_frame.pack(fill=X, pady=(0, 10))
+        current_frame.pack(fill=X, pady=(0, 20))  # 增加與下方元件的間距
         
         current_memory = self.pz.get_current_memory_setting()
         current_text = f"當前遊戲記憶體設定: {int(current_memory)}GB" if current_memory else "當前遊戲記憶體設定: 預設值 (3GB)"
         self.current_memory_label = ttk.Label(
             current_frame,
             text=current_text,
-            style='info'
+            style='Important.TLabel'  # 使用重要資訊樣式
         )
         self.current_memory_label.pack(side=LEFT)
         
-        # 建議設定
+        # 建議設定區域
         recommend_frame = ttk.Frame(self)
-        recommend_frame.pack(fill=X, pady=(0, 10))
+        recommend_frame.pack(fill=X, pady=(0, 25))  # 增加與下方元件的間距
         
         recommended_memory = self.pz.get_recommended_memory()
         description = self.pz.get_memory_recommendation_description()
         self.recommend_memory_label = ttk.Label(
             recommend_frame,
             text=f"建議遊戲記憶體設定: {recommended_memory}GB\n{description}",
-            style='info'
+            style='Important.TLabel',  # 使用重要資訊樣式
+            justify='left'  # 文字左對齊
         )
         self.recommend_memory_label.pack(side=LEFT)
         
-        # 記憶體設定提示
-        memory_tip_frame = ttk.Frame(self)
-        memory_tip_frame.pack(fill=X, pady=(0, 10))
+        # 記憶體設定控制區域
+        control_frame = ttk.Frame(self)
+        control_frame.pack(fill=X, pady=(0, 20))  # 增加與下方元件的間距
         
-        memory_tip_label = ttk.Label(
-            memory_tip_frame,
-            text="提示：記憶體設定會影響遊戲的運行效能，過低的設定可能導致遊戲卡頓，特別是在使用大量模組時。但設定過高也可能影響系統穩定性，建議根據您的實際系統配置選擇合適的值。",
-            style='info',
-            wraplength=700
-        )
-        memory_tip_label.pack(fill=X)
-        
-        # 記憶體設定控制
-        memory_control_frame = ttk.Frame(self)
-        memory_control_frame.pack(fill=X, pady=(0, 10))
+        # 記憶體大小輸入
+        input_frame = ttk.Frame(control_frame)
+        input_frame.pack(side=LEFT)
         
         ttk.Label(
-            memory_control_frame,
+            input_frame,
             text="記憶體大小 (GB):",
-            style='info'
-        ).pack(side=LEFT, padx=(0, 5))
+            style='Info.TLabel'
+        ).pack(side=LEFT, padx=(0, 8))  # 增加標籤與輸入框的間距
         
         self.memory_size_var = tk.StringVar(value=str(int(current_memory) if current_memory else 3))
         self.memory_size_entry = ttk.Entry(
-            memory_control_frame,
+            input_frame,
             textvariable=self.memory_size_var,
-            width=10,
-            font=('微軟正黑體', 10)
+            width=10
         )
-        self.memory_size_entry.pack(side=LEFT, padx=(0, 10))
+        self.memory_size_entry.pack(side=LEFT, padx=(0, 15))  # 增加與按鈕的間距
+        
+        # 控制按鈕
+        button_frame = ttk.Frame(control_frame)
+        button_frame.pack(side=LEFT)
         
         self.apply_memory_button = ttk.Button(
-            memory_control_frame,
+            button_frame,
             text="套用設定",
             command=self.apply_memory_setting,
             style='primary-outline',
             width=15
         )
-        self.apply_memory_button.pack(side=LEFT, padx=(0, 10))
+        self.apply_memory_button.pack(side=LEFT, padx=(0, 15))  # 增加按鈕之間的間距
         
         self.use_recommended_button = ttk.Button(
-            memory_control_frame,
+            button_frame,
             text="使用建議值",
             command=self.use_recommended_memory,
             style='info-outline',
             width=15
         )
         self.use_recommended_button.pack(side=LEFT)
+        
+        # 記憶體設定提示
+        tip_frame = ttk.Frame(self)
+        tip_frame.pack(fill=X, pady=(20, 0))  # 增加與上方元件的間距
+        
+        tip_label = ttk.Label(
+            tip_frame,
+            text="提示：記憶體設定會影響遊戲的運行效能，過低的設定可能導致遊戲卡頓，特別是在使用大量模組時。但設定過高也可能影響系統穩定性，建議根據您的實際系統配置選擇合適的值。",
+            style='Multiline.Tip.TLabel'  # 使用多行文字提示樣式
+        )
+        tip_label.pack(fill=X)
     
     def show_default_memory_warning(self):
         """顯示預設記憶體警告"""

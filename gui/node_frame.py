@@ -9,71 +9,91 @@ from logger import logger
 
 class NodeFrame(BaseFrame):
     """節點設定頁面"""
-    def __init__(self, master, kcptube_manager, **kwargs):
+    def __init__(self, master, kcptube_manager, config_manager, **kwargs):
         self.kcptube = kcptube_manager
+        self.config_manager = config_manager
         self.node_configs = {}
-        super().__init__(master, padding=15, **kwargs)
+        super().__init__(master, padding=20, **kwargs)  # 增加內部邊距
     
     def init_ui(self):
         """初始化節點設定頁面"""
-        # 節點選擇
+        # 節點選擇區域
         node_select_frame = ttk.Frame(self)
-        node_select_frame.pack(fill=X, pady=(0, 10))
+        node_select_frame.pack(fill=X, pady=(0, 15))  # 增加與下方元件的間距
+        
+        # 左側：節點選擇
+        select_container = ttk.Frame(node_select_frame)
+        select_container.pack(side=LEFT)
+        
+        ttk.Label(
+            select_container,
+            text="選擇節點:",
+            style='Info.TLabel'
+        ).pack(side=LEFT, padx=(0, 8))  # 增加標籤與下拉選單的間距
         
         self.node_combo = ttk.Combobox(
-            node_select_frame,
+            select_container,
             state='readonly',
-            font=('微軟正黑體', 10),
             width=30
         )
-        self.node_combo.pack(side=LEFT, padx=(0, 15))
+        self.node_combo.pack(side=LEFT)
         self.node_combo.bind('<<ComboboxSelected>>', self.on_node_selected)
+        
+        # 右側：下載節點設定按鈕
+        self.sync_button = ttk.Button(
+            node_select_frame,
+            text='下載節點設定',
+            command=self.sync_configs,
+            style='info-outline',
+            width=15
+        )
+        self.sync_button.pack(side=RIGHT)
         
         # 節點資訊
         node_info_frame = ttk.Frame(self)
-        node_info_frame.pack(fill=X, pady=(0, 10))
+        node_info_frame.pack(fill=X, pady=(0, 20))  # 增加與下方元件的間距
         
         self.node_speed_label = ttk.Label(
             node_info_frame,
             text="節點速度設定: 未選擇",
-            style='info'
+            style='Important.TLabel'  # 使用重要資訊樣式
         )
         self.node_speed_label.pack(side=LEFT)
         
         self.node_connect_label = ttk.Label(
             node_info_frame,
             text="連線資訊: 未選擇",
-            style='info'
+            style='Important.TLabel'  # 使用重要資訊樣式
         )
         self.node_connect_label.pack(side=RIGHT)
-
-        # 速度設定提示
-        speed_tip_frame = ttk.Frame(self)
-        speed_tip_frame.pack(fill=X, pady=(0, 10))
         
-        speed_tip_label = ttk.Label(
-            speed_tip_frame,
-            text="提示：您可以在「速度設定」頁面測試或設定網路頻寬。本工具使用頻寬設定來優化連線，降低延遲並提升穩定性，建議依據您的實際網路頻寬進行設定。",
-            style='info',
-            wraplength=700  # 設定文字換行寬度
-        )
-        speed_tip_label.pack(fill=X)
-        
-        # 控制按鈕
+        # 節點控制區域
         control_frame = ttk.Frame(self)
-        control_frame.pack(fill=X, pady=(0, 10))
+        control_frame.pack(fill=X, pady=(0, 15))  # 增加與下方元件的間距
+        
+        # 狀態顯示
+        self.status_label = ttk.Label(
+            control_frame,
+            text='狀態: 未啟動',
+            style='Important.TLabel'  # 使用重要資訊樣式
+        )
+        self.status_label.pack(side=LEFT)
+        
+        # 控制按鈕（右側）
+        button_frame = ttk.Frame(control_frame)
+        button_frame.pack(side=RIGHT)
         
         self.start_button = ttk.Button(
-            control_frame,
+            button_frame,
             text='啟動加速',
             command=self.start_service,
             style='success',
             width=15
         )
-        self.start_button.pack(side=LEFT, padx=(0, 10))
+        self.start_button.pack(side=LEFT, padx=(0, 15))  # 增加按鈕之間的間距
         
         self.stop_button = ttk.Button(
-            control_frame,
+            button_frame,
             text='停止加速',
             command=self.stop_service,
             state='disabled',
@@ -82,15 +102,31 @@ class NodeFrame(BaseFrame):
         )
         self.stop_button.pack(side=LEFT)
         
-        self.status_label = ttk.Label(
-            control_frame,
-            text='狀態: 未啟動',
-            style='info'
+        # 速度設定提示
+        tip_frame = ttk.Frame(self)
+        tip_frame.pack(fill=X, pady=(0, 15))  # 增加與下方元件的間距
+        
+        tip_label = ttk.Label(
+            tip_frame,
+            text="提示：您可以在「速度設定」頁面測試或設定網路頻寬。本工具使用頻寬設定來優化連線，降低延遲並提升穩定性，建議依據您的實際網路頻寬進行設定。",
+            style='Multiline.Tip.TLabel'  # 使用多行文字提示樣式
         )
-        self.status_label.pack(side=RIGHT)
+        tip_label.pack(fill=X)
         
         # 載入節點列表
         self.load_nodes()
+    
+    def sync_configs(self):
+        """同步節點設定"""
+        logger.info("正在同步設定檔...")
+        try:
+            self.config_manager.sync_configs(force=True)  # 強制同步
+            self.load_nodes()  # 重新載入節點列表
+            logger.info("設定檔同步完成")
+            messagebox.showinfo('成功', '節點設定已更新')
+        except Exception as e:
+            logger.error(f"同步設定檔失敗: {str(e)}")
+            messagebox.showerror('錯誤', '同步設定檔失敗，請檢查網路連接')
     
     def load_nodes(self):
         """載入節點列表"""
@@ -104,8 +140,18 @@ class NodeFrame(BaseFrame):
                 logger.debug(f"找到節點設定檔: {name} -> {file}")
             
             if self.node_configs:
-                self.node_combo['values'] = list(self.node_configs.keys())
-                self.node_combo.current(0)
+                # 獲取節點列表
+                nodes = list(self.node_configs.keys())
+                self.node_combo['values'] = nodes
+                
+                # 嘗試選擇上次使用的節點
+                selected_node = self.config_manager.get_selected_node()
+                if selected_node and selected_node in nodes:
+                    self.node_combo.set(selected_node)
+                else:
+                    # 如果沒有上次使用的節點或節點不存在，選擇第一個
+                    self.node_combo.current(0)
+                
                 # 觸發節點選擇事件來更新顯示
                 self.on_node_selected(None)
                 logger.info(f"載入了 {len(self.node_configs)} 個節點設定")
@@ -116,6 +162,9 @@ class NodeFrame(BaseFrame):
         """當選擇節點時更新顯示"""
         selected = self.node_combo.get()
         if selected:
+            # 儲存選擇的節點
+            self.config_manager.set_selected_node(selected)
+            
             config_path = self.node_configs.get(selected)
             info = self.get_node_info(config_path)
             

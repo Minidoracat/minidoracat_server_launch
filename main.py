@@ -18,11 +18,11 @@ if __name__ == '__main__':
         
         # 初始化管理器
         kcptube = KCPTubeManager()
-        speedtest = SpeedTestManager()
+        speedtest = SpeedTestManager(config_manager)  # 傳入 config_manager
         pz = ProjectZomboidManager()
         
-        # 建立主視窗
-        app = MainWindow(root, kcptube, speedtest, pz)
+        # 建立主視窗，傳入 config_manager
+        app = MainWindow(root, kcptube, speedtest, pz, config_manager)
         
         # 啟動主迴圈
         root.mainloop()

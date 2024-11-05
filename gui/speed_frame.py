@@ -7,43 +7,50 @@ from logger import logger
 
 class SpeedFrame(BaseFrame):
     """速度設定頁面"""
-    def __init__(self, master, speedtest_manager, **kwargs):
+    def __init__(self, master, speedtest_manager, config_manager, **kwargs):
         self.speedtest = speedtest_manager
-        super().__init__(master, padding=15, **kwargs)
+        self.config_manager = config_manager
+        super().__init__(master, padding=20, **kwargs)  # 增加內部間距
     
     def init_ui(self):
         """初始化速度設定頁面"""
         # 速度輸入區域
         speed_input_frame = ttk.Frame(self)
-        speed_input_frame.pack(fill=X, pady=(0, 10))
+        speed_input_frame.pack(fill=X, pady=(0, 20))  # 增加與下方元件的間距
+        
+        # 下載速度設定
+        download_frame = ttk.Frame(speed_input_frame)
+        download_frame.pack(side=LEFT, padx=(0, 25))  # 增加與上傳速度的間距
         
         ttk.Label(
-            speed_input_frame,
+            download_frame,
             text="下載速度 (M):",
-            style='info'
-        ).pack(side=LEFT, padx=(0, 5))
+            style='Info.TLabel'
+        ).pack(side=LEFT, padx=(0, 8))  # 增加標籤與輸入框的間距
         
         self.download_speed_var = tk.StringVar()
         self.download_speed_entry = ttk.Entry(
-            speed_input_frame,
+            download_frame,
             textvariable=self.download_speed_var,
-            width=10,
-            font=('微軟正黑體', 10)
+            width=10
         )
-        self.download_speed_entry.pack(side=LEFT, padx=(0, 20))
+        self.download_speed_entry.pack(side=LEFT)
+        
+        # 上傳速度設定
+        upload_frame = ttk.Frame(speed_input_frame)
+        upload_frame.pack(side=LEFT)
         
         ttk.Label(
-            speed_input_frame,
+            upload_frame,
             text="上傳速度 (M):",
-            style='info'
-        ).pack(side=LEFT, padx=(0, 5))
+            style='Info.TLabel'
+        ).pack(side=LEFT, padx=(0, 8))  # 增加標籤與輸入框的間距
         
         self.upload_speed_var = tk.StringVar()
         self.upload_speed_entry = ttk.Entry(
-            speed_input_frame,
+            upload_frame,
             textvariable=self.upload_speed_var,
-            width=10,
-            font=('微軟正黑體', 10)
+            width=10
         )
         self.upload_speed_entry.pack(side=LEFT)
         
@@ -56,23 +63,23 @@ class SpeedFrame(BaseFrame):
             command=self.on_auto_apply_changed,
             style='round-toggle'
         )
-        self.auto_apply_checkbox.pack(fill=X, pady=10)
+        self.auto_apply_checkbox.pack(fill=X, pady=(0, 25))  # 增加與下方元件的間距
         
         # 速度控制按鈕
-        speed_control_frame = ttk.Frame(self)
-        speed_control_frame.pack(fill=X)
+        control_frame = ttk.Frame(self)
+        control_frame.pack(fill=X, pady=(0, 20))  # 增加與下方元件的間距
         
         self.apply_speed_button = ttk.Button(
-            speed_control_frame,
+            control_frame,
             text="套用設定到節點",
             command=self.apply_speed_settings,
             style='primary-outline',
             width=15
         )
-        self.apply_speed_button.pack(side=LEFT, padx=(0, 10))
+        self.apply_speed_button.pack(side=LEFT, padx=(0, 15))  # 增加按鈕之間的間距
         
         self.speedtest_button = ttk.Button(
-            speed_control_frame,
+            control_frame,
             text="測試網路速度",
             command=self.start_speedtest,
             style='info-outline',
@@ -80,12 +87,28 @@ class SpeedFrame(BaseFrame):
         )
         self.speedtest_button.pack(side=LEFT)
         
+        # 速度資訊顯示
+        info_frame = ttk.Frame(self)
+        info_frame.pack(fill=X, pady=(0, 20))  # 增加與下方元件的間距
+        
         self.speed_info_label = ttk.Label(
-            speed_control_frame,
+            info_frame,
             text="目前未設定速度",
-            style='info'
+            style='Important.TLabel',  # 使用重要資訊樣式
+            justify='left'  # 文字左對齊
         )
-        self.speed_info_label.pack(side=RIGHT)
+        self.speed_info_label.pack(side=LEFT)
+        
+        # 速度設定提示
+        tip_frame = ttk.Frame(self)
+        tip_frame.pack(fill=X)
+        
+        tip_label = ttk.Label(
+            tip_frame,
+            text="提示：速度設定會影響連線品質，過低的設定可能導致延遲增加，過高的設定可能造成不穩定。建議使用測試功能來取得最佳設定值。",
+            style='Multiline.Tip.TLabel'  # 使用多行文字提示樣式
+        )
+        tip_label.pack(fill=X)
         
         # 載入速度設定
         self.load_speed_settings()
@@ -139,17 +162,18 @@ class SpeedFrame(BaseFrame):
             if download <= 0 or upload <= 0:
                 raise ValueError("速度必須大於 0")
             
+            # 更新 config.json
             self.speedtest.set_manual_speeds(download, upload)
             self.update_speed_info()
             
-            # 更新設定檔
-            if self.speedtest.update_conf_files():
+            # 更新節點設定檔
+            if self.config_manager.update_node_bandwidth(download, upload):
                 messagebox.showinfo('成功', '速度設定已更新')
                 # 發送更新事件
                 self.event_generate('<<SpeedSettingsUpdated>>')
             else:
                 messagebox.showwarning('警告', '速度設定已儲存，但更新設定檔時發生錯誤')
-        except ValueError as e:
+        except ValueError:
             messagebox.showerror('錯誤', '請輸入有效的數字')
     
     def start_speedtest(self):
@@ -166,7 +190,10 @@ class SpeedFrame(BaseFrame):
             
             # 如果啟用了自動套用，則更新設定檔
             if self.auto_apply_var.get():
-                if self.speedtest.update_conf_files():
+                if self.config_manager.update_node_bandwidth(
+                    result['download_speed'],
+                    result['upload_speed']
+                ):
                     messagebox.showinfo('成功', '速度測試完成並已更新設定')
                     # 發送更新事件
                     self.event_generate('<<SpeedSettingsUpdated>>')

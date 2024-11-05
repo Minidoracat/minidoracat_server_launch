@@ -69,6 +69,8 @@ a = Analysis(
         ('version.json', '.'),
         ('image/*.png', 'image'),
         ('image/app.ico', 'image'),
+        ('fonts/Noto_Sans_TC/NotoSansTC-VariableFont_wght.ttf', 'fonts/Noto_Sans_TC'),
+        ('fonts/Noto_Sans_TC/static/*.ttf', 'fonts/Noto_Sans_TC/static'),
     ],
     hiddenimports=[
         'speedtest',
